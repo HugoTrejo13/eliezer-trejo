@@ -29,8 +29,17 @@ html {
   background: var(--color-bg);
 }
 
+/* Sin fondo propio: así se ve la capa de estrellas fija que está detrás */
 body {
-  @apply bg-bg font-sans text-ink antialiased;
+  @apply font-sans text-ink antialiased;
+}
+
+/* Capa fija del cielo nocturno; el mosaico de estrellas se genera en App.jsx */
+.stars {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
 }
 
 ::selection {

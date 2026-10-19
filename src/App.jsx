@@ -1,5 +1,19 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { profile, nav } from './data.js'
+
+const Planet = lazy(() => import('./Planet.jsx'))
+
+// Cielo nocturno: mosaico SVG de 600px con estrellas en posiciones al azar (semilla fija)
+const starTile = (() => {
+  let seed = 3
+  const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+  const tints = ['#ffffff', '#cfdcff', '#fff6cc']
+  const stars = Array.from({ length: 80 }, () => {
+    const r = rand() < 0.85 ? 0.7 : 1.2
+    return `<circle cx='${(rand() * 600).toFixed(1)}' cy='${(rand() * 600).toFixed(1)}' r='${r}' fill='${tints[Math.floor(rand() * 3)]}' opacity='${(0.25 + rand() * 0.6).toFixed(2)}'/>`
+  })
+  return `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'>${stars.join('')}</svg>`)}")`
+})()
 
 const pad = (n, size = 3) => String(n).padStart(size, '0')
 const clock = (s) => `${Math.floor(s / 60)}:${pad(s % 60, 2)}`
@@ -72,7 +86,7 @@ function Navbar({ rings }) {
   )
 }
 
-function Hero() {
+function Hero({ onCollect }) {
   return (
     <section id="top" className="relative mx-auto grid min-h-svh max-w-6xl items-center gap-8 px-4 pt-28 pb-16 sm:px-6 lg:grid-cols-[1.1fr_1fr]">
       <div className="flex gap-5">
@@ -98,14 +112,25 @@ function Hero() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a href="#projects" className="rounded-xl bg-gold px-5 py-3 font-semibold text-bg transition hover:brightness-110">View projects</a>
             <a href="#contact" className="rounded-xl border border-line px-5 py-3 font-semibold transition hover:border-grass hover:text-grass">Contact me</a>
-            <a href={profile.cv} download className="px-2 py-3 text-sm font-medium text-muted underline-offset-4 hover:text-ink hover:underline">Download CV</a>
+            <a href={profile.cv} download className="py-3 text-sm font-medium sm:px-2 text-muted underline-offset-4 hover:text-ink hover:underline">Download CV</a>
           </div>
         </div>
       </div>
 
-      {/* Fase 2: aquí va <Planet />. Mientras tanto, el anillo de carga. */}
-      <div className="grid h-80 place-items-center sm:h-[28rem] lg:h-[34rem]" style={{ perspective: 600 }} aria-hidden="true">
-        <img src="/favicon.svg" alt="" className="ring-spin size-24" />
+      <div
+        className="relative -mx-4 h-[22rem] bg-[radial-gradient(circle_at_center,rgba(47,107,255,0.22),transparent_62%)] sm:-mx-6 sm:h-[28rem] lg:h-[36rem]"
+        role="img"
+        aria-label="Low-poly Green Hill planet with golden rings in orbit. Click a ring to collect it."
+      >
+        <Suspense
+          fallback={
+            <div className="grid h-full place-items-center" style={{ perspective: 600 }}>
+              <img src="/favicon.svg" alt="" className="ring-spin size-24" />
+            </div>
+          }
+        >
+          <Planet onCollect={onCollect} />
+        </Suspense>
       </div>
     </section>
   )
@@ -128,16 +153,18 @@ function Footer() {
 }
 
 export default function App() {
-  const [rings] = useState(0)
+  const [rings, setRings] = useState(0)
+  const collect = useCallback(() => setRings((r) => r + 1), [])
 
   return (
     <>
+      <div className="stars" style={{ backgroundImage: starTile }} aria-hidden="true" />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-gold focus:px-3 focus:py-2 focus:text-bg">
         Skip to content
       </a>
       <Navbar rings={rings} />
       <main id="main">
-        <Hero />
+        <Hero onCollect={collect} />
       </main>
       <Footer />
     </>
