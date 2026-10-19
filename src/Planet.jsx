@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Sparkles } from '@react-three/drei'
 import * as THREE from 'three'
+import { Eggman, Sonic, flashGeo, ringGeo, ringMat, ringPop } from './Characters.jsx'
 
 // Planeta Green Hill low-poly, todo hecho con código (ver PLAN.md §5).
 // Terreno + decoración se juntan en UNA sola geometría con colores por vértice.
 
 const R = 1.6 // radio del planeta (nivel del agua)
 const STEP = 0.1 // altura de cada nivel de terreno
+const LOOP = 0.45 // radio del loop de Green Hill
 const UP = new THREE.Vector3(0, 1, 0)
 
 const C = {
@@ -101,13 +103,13 @@ function bush(rand) {
 // El loop de Green Hill: anillo de bloques con patrón de cuadros
 function loop() {
   const parts = []
-  const n = 22
-  const rad = 0.3
+  const n = 28
+  const rad = LOOP
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2
     const len = ((2 * Math.PI * rad) / n) * 1.08
-    parts.push([G.box, C.soil[i % 2], M([Math.cos(a) * rad, rad - 0.02 + Math.sin(a) * rad, 0], [0, 0, a], [0.04, len, 0.14])])
-    parts.push([G.box, C.lip, M([Math.cos(a) * (rad + 0.025), rad - 0.02 + Math.sin(a) * (rad + 0.025), 0], [0, 0, a], [0.012, len, 0.15])])
+    parts.push([G.box, C.soil[i % 2], M([Math.cos(a) * rad, rad - 0.02 + Math.sin(a) * rad, 0], [0, 0, a], [0.04, len, 0.2])])
+    parts.push([G.box, C.lip, M([Math.cos(a) * (rad + 0.025), rad - 0.02 + Math.sin(a) * (rad + 0.025), 0], [0, 0, a], [0.012, len, 0.21])])
   }
   return parts
 }
@@ -229,25 +231,90 @@ function buildWorld() {
   }
   const flat = (f) => f.nb.every((n) => n.level === f.level)
 
-  choose(1, 0.5, (f) => f.level === 1 && flat(f) && f.nb.every((n) => n.nb.every((m) => m.level === 1))).forEach((f) => place(f, loop()))
-  choose(1, 0.35, (f) => f.level >= 2 && flat(f)).forEach((f) => place(f, totem()))
-  choose(1, 0.35, flat).forEach((f) => place(f, starPost()))
-  choose(8, 0.32).forEach((f) => place(f, palm(rand), 1.15 + rand() * 0.35))
-  choose(7, 0.22).forEach((f) => place(f, sunflower(), 1.3 + rand() * 0.3))
-  choose(6, 0.22).forEach((f) => place(f, bush(rand)))
-  choose(4, 0.22).forEach((f) => place(f, rockPile(rand)))
+  // 6. Pista de Sonic: un círculo máximo que pasa por el loop
+  const loopFace = choose(1, 0.5, (f) => f.level === 1 && flat(f) && f.nb.every((n) => n.nb.every((m) => m.level === 1)))[0] ?? land[0]
+  const n0 = loopFace.n.clone()
+  const N = 720
+  const faceAt = (dir) => faces.reduce((best, f) => (f.n.dot(dir) > best.n.dot(dir) ? f : best), faces[0])
+  const levelsAlong = (t0) =>
+    Array.from({ length: N }, (_, i) => {
+      const a = (i / N) * Math.PI * 2
+      return faceAt(n0.clone().multiplyScalar(Math.cos(a)).addScaledVector(t0, Math.sin(a))).level
+    })
+  // De 8 direcciones, la que cruza ~8 desniveles y deja plano el tramo del loop
+  const e1 = new THREE.Vector3().crossVectors(n0, Math.abs(n0.y) < 0.9 ? UP : new THREE.Vector3(1, 0, 0)).normalize()
+  const e2 = new THREE.Vector3().crossVectors(n0, e1)
+  let best = null
+  for (let k = 0; k < 8; k++) {
+    const t0 = e1.clone().multiplyScalar(Math.cos((k / 8) * Math.PI)).addScaledVector(e2, Math.sin((k / 8) * Math.PI))
+    const levels = levelsAlong(t0)
+    const changes = levels.filter((l, i) => l !== levels[(i + 1) % N]).length
+    const loopZoneFlat = levels.every((l, i) => Math.min(i, N - i) > 40 || l === 1)
+    const score = Math.abs(changes - 8) + (loopZoneFlat ? 0 : 100)
+    if (!best || score < best.score) best = { t0, levels, score }
+  }
+  const t0 = best.t0
+  const axis = new THREE.Vector3().crossVectors(n0, t0)
+
+  // Altura de Sonic: máximo móvil + dos promedios = despega antes de un acantilado y cae en arco
+  const ground = best.levels.map(radius)
+  const around = (arr, w, fn) =>
+    arr.map((_, i) => {
+      const xs = []
+      for (let j = -w; j <= w; j++) xs.push(arr[(i + j + N) % N])
+      return fn(xs)
+    })
+  const mean = (xs) => xs.reduce((a, b) => a + b) / xs.length
+  const ride = around(around(around(ground, 19, (xs) => Math.max(...xs)), 6, mean), 6, mean).map((r, i) => Math.max(r, ground[i]))
+  const air = ride.map((r, i) => (r - ground[i] > 0.015 ? 1 : 0))
+  for (let i = 0; i < N; ) {
+    if (!air[i]) {
+      i++
+      continue
+    }
+    let j = i
+    while (j < N && air[j]) j++
+    const H = Math.min(0.12, 0.03 + (j - i) * 0.002)
+    for (let k = i; k < j; k++) {
+      const x = (k - i + 0.5) / (j - i)
+      ride[k] += 4 * H * x * (1 - x)
+    }
+    i = j
+  }
+
+  // El loop queda alineado con la pista (su plano contiene n0 y t0)
+  const loopGround = n0.clone().multiplyScalar(radius(loopFace.level))
+  const loopBasis = new THREE.Matrix4().makeBasis(t0, n0, axis.clone().negate())
+  const loopMatrix = new THREE.Matrix4().compose(loopGround, new THREE.Quaternion().setFromRotationMatrix(loopBasis), new THREE.Vector3(1, 1, 1))
+  loop().forEach(([g, hex, m]) => add(g, hex, loopMatrix.clone().multiply(m)))
+
+  // 7. Decoración fuera del corredor de la pista; el poste de checkpoint, a un lado
+  const off = (angle) => (f) => Math.abs(f.n.dot(axis)) > Math.sin(angle)
+  const beside = (f) => off(0.1)(f) && !off(0.17)(f)
+  choose(1, 0.35, (f) => f.level >= 2 && flat(f) && off(0.1)(f)).forEach((f) => place(f, totem()))
+  choose(1, 0.35, (f) => flat(f) && beside(f)).forEach((f) => place(f, starPost()))
+  choose(8, 0.32, off(0.1)).forEach((f) => place(f, palm(rand), 1.15 + rand() * 0.35))
+  choose(7, 0.22, off(0.08)).forEach((f) => place(f, sunflower(), 1.3 + rand() * 0.3))
+  choose(6, 0.22, off(0.08)).forEach((f) => place(f, bush(rand)))
+  choose(4, 0.22, off(0.08)).forEach((f) => place(f, rockPile(rand)))
 
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
   geometry.computeVertexNormals()
-  return geometry
+
+  const track = {
+    n0,
+    t0,
+    ride: Float32Array.from(ride),
+    air: Uint8Array.from(air),
+    loop: { center: loopGround.clone().addScaledVector(n0, LOOP - 0.02), r: LOOP - 0.02 },
+    ringThetas: Array.from({ length: 8 }, (_, i) => 0.6 + (i / 8) * (Math.PI * 2 - 1.0)),
+  }
+  return { geometry, track }
 }
 
 // --- Anillos dorados: giran en órbita y se recogen con clic ---
-
-const ringGeo = new THREE.TorusGeometry(0.12, 0.032, 8, 24)
-const flashGeo = new THREE.OctahedronGeometry(0.16, 0)
 
 function Ring({ orbit, phase, motion, onCollect }) {
   const group = useRef()
@@ -265,27 +332,19 @@ function Ring({ orbit, phase, motion, onCollect }) {
       s.pending = false
       s.gone = t
     }
-    const k = s.gone < 0 ? Infinity : t - s.gone
-    let scale = 1
-    if (k < 0.25) scale = 1 - k / 0.25
-    else if (k < 6) scale = 0
-    else if (k < 6.4) scale = (k - 6) / 0.4
-    else s.gone = -1
-    ring.current.scale.setScalar(Math.max(scale, 0.0001))
-    ring.current.rotation.y = phase + t * 2.4 * motion + (k < 0.25 ? k * 40 : 0)
-
-    const f = k < 0.4 ? k / 0.4 : 1
-    flash.current.visible = k < 0.4
-    flash.current.scale.setScalar(0.3 + f * 1.4)
-    flash.current.rotation.z = f * 2
-    flash.current.material.opacity = 1 - f
+    const pop = ringPop(s.gone < 0 ? Infinity : t - s.gone)
+    if (pop.done) s.gone = -1
+    ring.current.scale.setScalar(pop.scale)
+    ring.current.rotation.y = phase + t * 2.4 * motion + pop.spin
+    flash.current.visible = pop.flash
+    flash.current.scale.setScalar(pop.flashScale)
+    flash.current.rotation.z = pop.flashScale
+    flash.current.material.opacity = pop.flashOpacity
   })
 
   return (
     <group ref={group}>
-      <mesh ref={ring} geometry={ringGeo}>
-        <meshStandardMaterial color="#ffc93c" emissive="#ffae00" emissiveIntensity={0.45} metalness={0.5} roughness={0.3} />
-      </mesh>
+      <mesh ref={ring} geometry={ringGeo} material={ringMat} />
       <mesh ref={flash} geometry={flashGeo} visible={false}>
         <meshBasicMaterial color="#fff6cc" transparent depthWrite={false} />
       </mesh>
@@ -341,7 +400,7 @@ function Rocks({ count, motion }) {
 function World({ mobile, motion, onCollect }) {
   const tilt = useRef()
   const planet = useRef()
-  const geometry = useMemo(buildWorld, [])
+  const { geometry, track } = useMemo(buildWorld, [])
   const perOrbit = mobile ? 3 : 6
 
   useFrame((state, delta) => {
@@ -357,9 +416,14 @@ function World({ mobile, motion, onCollect }) {
 
   return (
     <group ref={tilt}>
-      <mesh ref={planet} geometry={geometry} rotation={[0.35, 0, 0]}>
-        <meshStandardMaterial vertexColors flatShading roughness={0.85} />
-      </mesh>
+      {/* Sonic va dentro del grupo que gira con el planeta */}
+      <group ref={planet} rotation={[0.35, 0, 0]}>
+        <mesh geometry={geometry}>
+          <meshStandardMaterial vertexColors flatShading roughness={0.85} />
+        </mesh>
+        <Sonic track={track} motion={motion} mobile={mobile} onCollect={onCollect} />
+      </group>
+      <Eggman motion={motion} mobile={mobile} />
       {/* Esfera invisible que tapa los clics: los anillos detrás del planeta no se recogen */}
       <mesh onClick={(e) => e.stopPropagation()}>
         <sphereGeometry args={[R + STEP * 2, 16, 16]} />
@@ -377,7 +441,8 @@ function World({ mobile, motion, onCollect }) {
   )
 }
 
-export default function Planet({ onCollect }) {
+// memo: el contador de anillos re-renderiza App, pero el canvas no necesita re-renderizarse
+export default memo(function Planet({ onCollect }) {
   const wrap = useRef()
   const [visible, setVisible] = useState(true)
   const [{ mobile, motion }] = useState(() => ({
@@ -412,4 +477,4 @@ export default function Planet({ onCollect }) {
       </Canvas>
     </div>
   )
-}
+})

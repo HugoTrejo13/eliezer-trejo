@@ -34,11 +34,16 @@ body {
   @apply font-sans text-ink antialiased;
 }
 
-/* Capa fija del cielo nocturno; el mosaico de estrellas se genera en App.jsx */
+/* Canvas fijo del cielo nocturno (Sky en App.jsx). 100lvh: no cambia de tamaño
+   cuando la barra del navegador del celular aparece o desaparece al hacer scroll */
 .stars {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
   z-index: -1;
+  width: 100%;
+  height: 100vh;
+  height: 100lvh;
   pointer-events: none;
 }
 

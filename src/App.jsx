@@ -1,19 +1,124 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { profile, nav } from './data.js'
 
 const Planet = lazy(() => import('./Planet.jsx'))
 
-// Cielo nocturno: mosaico SVG de 600px con estrellas en posiciones al azar (semilla fija)
-const starTile = (() => {
-  let seed = 3
-  const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647
-  const tints = ['#ffffff', '#cfdcff', '#fff6cc']
-  const stars = Array.from({ length: 80 }, () => {
-    const r = rand() < 0.85 ? 0.7 : 1.2
-    return `<circle cx='${(rand() * 600).toFixed(1)}' cy='${(rand() * 600).toFixed(1)}' r='${r}' fill='${tints[Math.floor(rand() * 3)]}' opacity='${(0.25 + rand() * 0.6).toFixed(2)}'/>`
-  })
-  return `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'>${stars.join('')}</svg>`)}")`
-})()
+// Cielo nocturno en un canvas: estrellas que titilan y un cometa cada 20 s
+function Sky() {
+  const ref = useRef()
+
+  useEffect(() => {
+    const canvas = ref.current
+    const ctx = canvas.getContext('2d')
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches
+    const tints = ['255,255,255', '207,220,255', '255,240,204']
+    let stars = []
+    let w = 0
+    let h = 0
+    let raf = 0
+    let last = 0
+
+    const resize = () => {
+      if (canvas.clientWidth === w && canvas.clientHeight === h) return
+      const dpr = Math.min(devicePixelRatio || 1, 2)
+      w = canvas.clientWidth
+      h = canvas.clientHeight
+      canvas.width = w * dpr
+      canvas.height = h * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      stars = Array.from({ length: Math.min(350, Math.round((w * h) / 5500)) }, () => ({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: 0.5 + Math.random() ** 2 * 0.9,
+        a: 0.3 + Math.random() * 0.6,
+        speed: 0.6 + Math.random() * 1.9,
+        phase: Math.random() * 6.28,
+        tint: tints[Math.floor(Math.random() * 3)],
+        glint: Math.random() < 0.06,
+      }))
+      if (still) draw(0)
+    }
+
+    // Pseudoaleatorio por número de cometa: cada uno sale de un lugar distinto
+    const rnd = (n, salt) => {
+      const x = Math.sin(n * 12.9898 + salt * 78.233) * 43758.5453
+      return x - Math.floor(x)
+    }
+
+    const comet = (t) => {
+      const n = Math.floor((t - 6) / 20)
+      const k = (t - 6 - n * 20) / 1.6
+      if (t < 6 || k > 1) return
+      // Nace en la parte alta derecha y baja en diagonal hacia la izquierda, siempre dentro de la pantalla
+      const angle = 0.45 + rnd(n, 1) * 0.35
+      const dx = -Math.cos(angle)
+      const dy = Math.sin(angle)
+      const dist = Math.min(w, h) * 0.9
+      const x = w * (0.55 + rnd(n, 2) * 0.4) + dx * dist * k
+      const y = h * (0.08 + rnd(n, 3) * 0.22) + dy * dist * k
+      const tail = (w < 768 ? 120 : 180) * (1 - 0.3 * k)
+      const fade = Math.sin(k * Math.PI)
+      const grad = ctx.createLinearGradient(x, y, x - dx * tail, y - dy * tail)
+      grad.addColorStop(0, `rgba(255,255,255,${0.9 * fade})`)
+      grad.addColorStop(1, 'rgba(160,200,255,0)')
+      ctx.strokeStyle = grad
+      ctx.lineWidth = 2
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      ctx.lineTo(x - dx * tail, y - dy * tail)
+      ctx.stroke()
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, 7)
+      glow.addColorStop(0, `rgba(255,255,255,${fade})`)
+      glow.addColorStop(1, 'rgba(160,200,255,0)')
+      ctx.fillStyle = glow
+      ctx.beginPath()
+      ctx.arc(x, y, 7, 0, 6.283)
+      ctx.fill()
+    }
+
+    const draw = (t) => {
+      ctx.clearRect(0, 0, w, h)
+      for (const s of stars) {
+        // Titileo: un pulso lento con un parpadeo rápido encima, como las estrellas reales
+        const tw = still ? 1 : (0.55 + 0.45 * Math.sin(t * s.speed + s.phase)) * (0.85 + 0.15 * Math.sin(t * s.speed * 3.7 + s.phase * 2))
+        ctx.fillStyle = `rgba(${s.tint},${s.a * tw})`
+        ctx.beginPath()
+        ctx.arc(s.x, s.y, s.r, 0, 6.283)
+        ctx.fill()
+        if (s.glint && tw > 0.85) {
+          const len = 3 + s.r * 4
+          ctx.strokeStyle = `rgba(${s.tint},${(s.a * (tw - 0.85)) / 0.15})`
+          ctx.lineWidth = 0.6
+          ctx.beginPath()
+          ctx.moveTo(s.x - len, s.y)
+          ctx.lineTo(s.x + len, s.y)
+          ctx.moveTo(s.x, s.y - len)
+          ctx.lineTo(s.x, s.y + len)
+          ctx.stroke()
+        }
+      }
+      if (!still) comet(t)
+    }
+
+    const loop = (ms) => {
+      raf = requestAnimationFrame(loop)
+      if (ms - last < 33) return // ~30 fps es suficiente para un fondo
+      last = ms
+      draw(ms / 1000)
+    }
+
+    resize()
+    addEventListener('resize', resize)
+    if (!still) raf = requestAnimationFrame(loop)
+    return () => {
+      cancelAnimationFrame(raf)
+      removeEventListener('resize', resize)
+    }
+  }, [])
+
+  return <canvas ref={ref} className="stars" aria-hidden="true" />
+}
 
 const pad = (n, size = 3) => String(n).padStart(size, '0')
 const clock = (s) => `${Math.floor(s / 60)}:${pad(s % 60, 2)}`
@@ -158,7 +263,7 @@ export default function App() {
 
   return (
     <>
-      <div className="stars" style={{ backgroundImage: starTile }} aria-hidden="true" />
+      <Sky />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-gold focus:px-3 focus:py-2 focus:text-bg">
         Skip to content
       </a>
