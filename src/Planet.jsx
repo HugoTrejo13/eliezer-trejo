@@ -10,6 +10,7 @@ import { Eggman, Sonic, flashGeo, ringGeo, ringMat, ringPop } from './Characters
 const R = 1.6 // radio del planeta (nivel del agua)
 const STEP = 0.1 // altura de cada nivel de terreno
 const LOOP = 0.45 // radio del loop de Green Hill
+const LANE = 0.1 // separación lateral entre la entrada y la salida del loop
 const UP = new THREE.Vector3(0, 1, 0)
 
 const C = {
@@ -17,8 +18,8 @@ const C = {
   grass: [null, ['#27a94a', '#2cb350'], ['#3ddc6a', '#44e070'], ['#5fe884', '#69ea8c']],
   lip: '#5be07c',
   soil: ['#c8743a', '#8a4a22'],
-  trunk: ['#b5652b', '#7c3f17'],
-  leaf: ['#2fbf55', '#249e45'],
+  trunk: ['#c98543', '#7c3f17'],
+  leaf: ['#7be05a', '#3e9b35'],
   bush: ['#249e45', '#2fbf55', '#1f8a3c'],
   rock: ['#9aa3b5', '#7d869b'],
 }
@@ -49,48 +50,95 @@ const field = (n) =>
 const M = (p = [0, 0, 0], r = [0, 0, 0], s = [1, 1, 1]) =>
   new THREE.Matrix4().compose(new THREE.Vector3(...p), new THREE.Quaternion().setFromEuler(new THREE.Euler(...r)), new THREE.Vector3(...s))
 
+// Hoja de palmera doblada en V, visible por ambos lados (una mitad clara y otra oscura, como en Green Hill)
+function frondHalf(side) {
+  const [base, edge, crease, tip] = [
+    [0, 0, 0],
+    [side * 0.22, 0.05, 0.42],
+    [0, -0.03, 0.45],
+    [0, -0.42, 1],
+  ].map((p) => new THREE.Vector3(...p))
+  const tris = [
+    [base, edge, crease],
+    [edge, tip, crease],
+  ]
+  return new THREE.BufferGeometry().setFromPoints(tris.flatMap((t) => [...t, ...[...t].reverse()]))
+}
+
 const G = {
   trunk: new THREE.CylinderGeometry(0.026, 0.034, 0.08, 6),
   leaf: new THREE.ConeGeometry(0.06, 0.34, 4),
+  blade: new THREE.ConeGeometry(1, 1, 3),
   ball: new THREE.IcosahedronGeometry(1, 0),
   box: new THREE.BoxGeometry(1, 1, 1),
   disc: new THREE.CylinderGeometry(1, 1, 1, 8),
   rod: new THREE.CylinderGeometry(1, 1, 1, 5),
+  frondL: frondHalf(-1),
+  frondR: frondHalf(1),
 }
+
+// Una hoja completa (las dos mitades) con su matriz
+const frond = (m) => [
+  [G.frondL, C.leaf[0], m],
+  [G.frondR, C.leaf[1], m],
+]
+const leafMatrix = (pos, yaw, pitch, size) =>
+  new THREE.Matrix4()
+    .makeRotationY(yaw)
+    .multiply(new THREE.Matrix4().makeRotationX(pitch))
+    .scale(new THREE.Vector3(size, size, size))
+    .setPosition(...pos)
 
 // --- Decoración: cada función devuelve [geometría, color, matriz local] ---
 
 function palm(rand) {
   const parts = []
-  const segs = 5 + Math.floor(rand() * 2)
+  const segs = 6 + Math.floor(rand() * 2)
   for (let i = 0; i < segs; i++) {
-    const s = 1 - i * 0.07
-    parts.push([G.trunk, C.trunk[i % 2], M([0, 0.04 + i * 0.075, 0], [0, 0, 0], [s, 1, s])])
+    const s = 1 - i * 0.05
+    parts.push([G.trunk, C.trunk[i % 2], M([0, 0.035 + i * 0.07, 0], [0, 0, 0], [s, 0.9, s])])
   }
-  const top = segs * 0.075 + 0.01
-  for (let k = 0; k < 7; k++) {
-    const a = (k / 7) * Math.PI * 2 + rand() * 0.3
-    const euler = new THREE.Euler(0, a, -(Math.PI / 2 + 0.35 + rand() * 0.25))
-    const dir = UP.clone().applyEuler(euler)
-    const p = dir.multiplyScalar(0.15).add(new THREE.Vector3(0, top, 0))
-    parts.push([G.leaf, C.leaf[k % 2], new THREE.Matrix4().compose(p, new THREE.Quaternion().setFromEuler(euler), new THREE.Vector3(0.3, 1, 1))])
-  }
+  const top = segs * 0.07 + 0.02
+  parts.push([G.leaf, '#8a5a2b', M([0, top - 0.03, 0], [Math.PI, 0, 0], [1.2, 0.35, 1.2])])
   for (let k = 0; k < 3; k++) {
     const a = (k / 3) * Math.PI * 2
-    parts.push([G.ball, C.trunk[1], M([Math.cos(a) * 0.03, top - 0.03, Math.sin(a) * 0.03], [0, 0, 0], [0.022, 0.022, 0.022])])
+    parts.push([G.ball, C.trunk[1], M([Math.cos(a) * 0.035, top - 0.045, Math.sin(a) * 0.035], [0, 0, 0], [0.024, 0.024, 0.024])])
   }
-  const lean = (rand() - 0.5) * 0.5
-  const tilt = M([0, 0, 0], [0, 0, lean])
+  for (let k = 0; k < 7; k++) {
+    parts.push(...frond(leafMatrix([0, top, 0], (k / 7) * Math.PI * 2 + rand() * 0.4, -0.25 - rand() * 0.3, 0.3 + rand() * 0.06)))
+  }
+  const tilt = M([0, 0, 0], [0, 0, (rand() - 0.5) * 0.5])
   return parts.map(([g, c, m]) => [g, c, tilt.clone().multiply(m)])
 }
 
+// Girasol de Green Hill: pétalos amarillos en punta alrededor de un centro verde oscuro
 function sunflower() {
-  return [
-    [G.rod, C.leaf[1], M([0, 0.09, 0], [0, 0, 0], [0.008, 0.18, 0.008])],
-    [G.leaf, C.leaf[0], M([0.03, 0.06, 0], [0, 0, -1.1], [0.25, 0.25, 0.6])],
-    [G.disc, '#ffd43b', M([0, 0.2, 0], [Math.PI / 2, 0, 0], [0.06, 0.012, 0.06])],
-    [G.disc, '#7a3e12', M([0, 0.2, 0.008], [Math.PI / 2, 0, 0], [0.028, 0.012, 0.028])],
-  ]
+  const parts = [[G.rod, C.leaf[1], M([0, 0.15, 0], [0, 0, 0], [0.009, 0.3, 0.009])]]
+  ;[0.08, 0.17].forEach((h, j) => [-1, 1].forEach((s) => parts.push(...frond(leafMatrix([0, h, 0], (s * Math.PI) / 2 + j * 0.4, -0.5, 0.1)))))
+  parts.push([G.disc, '#6b8f74', M([0, 0.31, -0.006], [Math.PI / 2, 0, 0], [0.058, 0.012, 0.058])])
+  parts.push([G.disc, '#35574a', M([0, 0.31, 0.004], [Math.PI / 2, 0, 0], [0.045, 0.02, 0.045])])
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2
+    parts.push([G.blade, '#ffd23b', M([Math.cos(a) * 0.08, 0.31 + Math.sin(a) * 0.08, 0], [0, 0, a - Math.PI / 2], [0.03, 0.06, 0.012])])
+  }
+  return parts
+}
+
+// Flor morada de cinco pétalos
+function flower() {
+  const parts = [[G.rod, C.leaf[1], M([0, 0.065, 0], [0, 0, 0], [0.007, 0.13, 0.007])]]
+  ;[-1, 1].forEach((s) => parts.push(...frond(leafMatrix([0, 0.04, 0], (s * Math.PI) / 2, -0.4, 0.07))))
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2 + Math.PI / 2
+    parts.push([G.ball, '#a98be8', M([Math.cos(a) * 0.034, 0.14 + Math.sin(a) * 0.034, 0], [0, 0, a], [0.028, 0.024, 0.01])])
+  }
+  parts.push([G.ball, '#d6f26a', M([0, 0.14, 0.006], [0, 0, 0], [0.022, 0.022, 0.012])])
+  return parts
+}
+
+// Mata de pasto en punta
+function tuft(rand) {
+  return [-1, 0, 1].map((s, i) => [G.blade, i === 1 ? '#5fe884' : '#2fb956', M([s * 0.016, 0.04, 0], [0, rand() * 3, s * 0.35], [0.013, 0.08 + rand() * 0.05, 0.013])])
 }
 
 function bush(rand) {
@@ -100,16 +148,49 @@ function bush(rand) {
   })
 }
 
-// El loop de Green Hill: anillo de bloques con patrón de cuadros
+// El loop de Green Hill (ejes locales: X = hacia dónde va la pista, Y = arriba, Z = de lado).
+// La rampa es una espiral: entra por el carril z = -LANE y sale por z = +LANE, así no se cierra sobre sí misma.
+// Lleva pista de cuadros en el suelo y, detrás, el bloque de cuadros con hueco redondo (como en Smash).
 function loop() {
   const parts = []
-  const n = 28
-  const rad = LOOP
+  const n = 36
+  const cy = LOOP - 0.02
+  const ground = R + STEP // el loop va en pasto de nivel 1
+  // Punto del suelo a una distancia x por la pista, siguiendo la curva del planeta
+  const onGround = (x, y) => [ground * Math.sin(x / ground), ground * Math.cos(x / ground) - ground + y]
+
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2
-    const len = ((2 * Math.PI * rad) / n) * 1.08
-    parts.push([G.box, C.soil[i % 2], M([Math.cos(a) * rad, rad - 0.02 + Math.sin(a) * rad, 0], [0, 0, a], [0.04, len, 0.2])])
-    parts.push([G.box, C.lip, M([Math.cos(a) * (rad + 0.025), rad - 0.02 + Math.sin(a) * (rad + 0.025), 0], [0, 0, a], [0.012, len, 0.21])])
+    const phi = ((i + 0.5) / n) * Math.PI * 2
+    const z = -LANE + (2 * LANE * (i + 0.5)) / n
+    const len = ((2 * Math.PI * LOOP) / n) * 1.06
+    const [x, y] = [Math.sin(phi), -Math.cos(phi)]
+    ;[-0.045, 0.045].forEach((dz, k) => parts.push([G.box, C.soil[(i + k) % 2], M([x * LOOP, cy + y * LOOP, z + dz], [0, 0, phi - Math.PI / 2], [0.045, len, 0.09])]))
+    parts.push([G.box, C.lip, M([x * (LOOP + 0.028), cy + y * (LOOP + 0.028), z], [0, 0, phi - Math.PI / 2], [0.012, len, 0.19])])
+  }
+
+  // Pista en el suelo: entrada por un carril y salida por el otro
+  for (let j = 0; j < 5; j++) {
+    for (const [lane, x] of [
+      [-LANE, -0.12 - j * 0.09],
+      [LANE, 0.12 + j * 0.09],
+    ]) {
+      const [gx, gy] = onGround(x, 0.004)
+      ;[-0.045, 0.045].forEach((dz, k) => parts.push([G.box, C.soil[(j + k) % 2], M([gx, gy, lane + dz], [0, 0, -x / ground], [0.09, 0.02, 0.09])]))
+    }
+  }
+
+  // Bloque de cuadros detrás del loop, con hueco redondo y pasto arriba
+  const cell = 0.075
+  const top = cy + LOOP + 0.16
+  for (let i = -8; i <= 8; i++) {
+    for (let j = 0; ; j++) {
+      const x = i * cell
+      const y = -0.15 + j * cell + cell / 2
+      if (y > top) break
+      if (Math.hypot(x, y - cy) < LOOP + 0.06) continue
+      const isTop = y + cell > top
+      parts.push([G.box, isTop ? C.lip : C.soil[(((i + j) % 2) + 2) % 2], M([x, y, -LANE - 0.16], [0, 0, 0], [cell, cell, cell])])
+    }
   }
   return parts
 }
@@ -288,15 +369,18 @@ function buildWorld() {
   const loopMatrix = new THREE.Matrix4().compose(loopGround, new THREE.Quaternion().setFromRotationMatrix(loopBasis), new THREE.Vector3(1, 1, 1))
   loop().forEach(([g, hex, m]) => add(g, hex, loopMatrix.clone().multiply(m)))
 
-  // 7. Decoración fuera del corredor de la pista; el poste de checkpoint, a un lado
-  const off = (angle) => (f) => Math.abs(f.n.dot(axis)) > Math.sin(angle)
-  const beside = (f) => off(0.1)(f) && !off(0.17)(f)
+  // 7. Decoración fuera del corredor de la pista y lejos del loop; el poste de checkpoint, a un lado
+  const awayFromLoop = (f) => f.n.dot(n0) < Math.cos(0.42)
+  const off = (angle) => (f) => Math.abs(f.n.dot(axis)) > Math.sin(angle) && awayFromLoop(f)
+  const beside = (f) => off(0.1)(f) && Math.abs(f.n.dot(axis)) < Math.sin(0.17)
   choose(1, 0.35, (f) => f.level >= 2 && flat(f) && off(0.1)(f)).forEach((f) => place(f, totem()))
   choose(1, 0.35, (f) => flat(f) && beside(f)).forEach((f) => place(f, starPost()))
   choose(8, 0.32, off(0.1)).forEach((f) => place(f, palm(rand), 1.15 + rand() * 0.35))
-  choose(7, 0.22, off(0.08)).forEach((f) => place(f, sunflower(), 1.3 + rand() * 0.3))
+  choose(6, 0.22, off(0.08)).forEach((f) => place(f, sunflower(), 1.1 + rand() * 0.3))
+  choose(8, 0.16, off(0.08)).forEach((f) => place(f, flower(), 1 + rand() * 0.4))
   choose(6, 0.22, off(0.08)).forEach((f) => place(f, bush(rand)))
   choose(4, 0.22, off(0.08)).forEach((f) => place(f, rockPile(rand)))
+  choose(40, 0.1, off(0.07)).forEach((f) => place(f, tuft(rand), 0.9 + rand() * 0.5))
 
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
@@ -309,6 +393,9 @@ function buildWorld() {
     ride: Float32Array.from(ride),
     air: Uint8Array.from(air),
     loop: { center: loopGround.clone().addScaledVector(n0, LOOP - 0.02), r: LOOP - 0.02 },
+    // Carriles del loop: "side" es el eje Z local del loop en coordenadas del planeta
+    side: axis.clone().negate(),
+    lane: LANE,
     ringThetas: Array.from({ length: 8 }, (_, i) => 0.6 + (i / 8) * (Math.PI * 2 - 1.0)),
   }
   return { geometry, track }

@@ -51,46 +51,63 @@ const QUILLS = [
   [-0.4, -0.13, 0.32],
 ]
 
-function Runner({ legs, arms }) {
+// Esqueleto de Sonic: cada articulación es un <group> que se anima en useFrame
+function Runner({ rig }) {
+  const bone = (name, i) => (el) => {
+    if (i === undefined) rig.current[name] = el
+    else (rig.current[name] ??= [])[i] = el
+  }
   return (
-    <group rotation={[0.18, 0, 0]}>
+    <group ref={bone('body')}>
       {[-1, 1].map((s, i) => (
-        <group key={i} ref={(el) => (legs.current[i] = el)} position={[s * 0.08, 0.34, 0]}>
-          <P g="limb" c={BLUE} p={[0, -0.13, 0]} s={[0.035, 0.26, 0.035]} />
-          <P g="ico" c={RED} p={[0, -0.28, 0.06]} s={[0.09, 0.065, 0.17]} />
-          <P g="box" c={WHITE} p={[0, -0.24, 0.05]} s={[0.12, 0.03, 0.045]} />
+        <group key={i} ref={bone('hips', i)} position={[s * 0.08, 0.34, 0]}>
+          <P g="limb" c={BLUE} p={[0, -0.065, 0]} s={[0.036, 0.13, 0.036]} />
+          <group ref={bone('knees', i)} position={[0, -0.13, 0]}>
+            <P g="limb" c={BLUE} p={[0, -0.065, 0]} s={[0.032, 0.13, 0.032]} />
+            <group ref={bone('ankles', i)} position={[0, -0.13, 0]}>
+              <P g="ico" c={RED} p={[0, -0.02, 0.06]} s={[0.09, 0.065, 0.17]} />
+              <P g="box" c={WHITE} p={[0, 0.02, 0.05]} s={[0.12, 0.03, 0.045]} />
+            </group>
+          </group>
         </group>
       ))}
-      <P g="ico" c={BLUE} p={[0, 0.47, -0.01]} s={[0.16, 0.18, 0.14]} />
-      <P g="ico" c={PEACH} p={[0, 0.45, 0.08]} s={[0.1, 0.12, 0.07]} />
-      <P g="cone" c={BLUE} p={[0, 0.36, -0.14]} r={[-2.2, 0, 0]} s={[0.04, 0.12, 0.04]} />
-      {[-1, 1].map((s, i) => (
-        <group key={i} ref={(el) => (arms.current[i] = el)} position={[s * 0.17, 0.56, 0]} rotation={[0, 0, s * 0.25]}>
-          <P g="limb" c={PEACH} p={[0, -0.1, 0]} s={[0.028, 0.2, 0.028]} />
-          <P g="ico" c={WHITE} p={[0, -0.22, 0]} s={[0.06, 0.06, 0.06]} />
+      <group ref={bone('torso')} position={[0, 0.36, 0]}>
+        <P g="ico" c={BLUE} p={[0, 0.11, -0.01]} s={[0.16, 0.18, 0.14]} />
+        <P g="ico" c={PEACH} p={[0, 0.09, 0.08]} s={[0.1, 0.12, 0.07]} />
+        <P g="cone" c={BLUE} p={[0, 0, -0.14]} r={[-2.2, 0, 0]} s={[0.04, 0.12, 0.04]} />
+        {[-1, 1].map((s, i) => (
+          <group key={i} ref={bone('shoulders', i)} position={[s * 0.17, 0.2, 0]} rotation={[0, 0, s * 0.25]}>
+            <P g="limb" c={PEACH} p={[0, -0.05, 0]} s={[0.028, 0.1, 0.028]} />
+            <group ref={bone('elbows', i)} position={[0, -0.1, 0]}>
+              <P g="limb" c={PEACH} p={[0, -0.05, 0]} s={[0.026, 0.1, 0.026]} />
+              <P g="ico" c={WHITE} p={[0, -0.12, 0]} s={0.06} />
+            </group>
+          </group>
+        ))}
+        <group ref={bone('head')} position={[0, 0.44, 0]}>
+          <P g="ico" c={BLUE} s={[0.26, 0.25, 0.25]} />
+          <group ref={bone('quills')}>
+            {QUILLS.map(([tilt, y, len], i) => (
+              <P
+                key={i}
+                g="cone"
+                c={BLUE}
+                p={[0, y + Math.sin(tilt) * (0.12 + len / 2), -Math.cos(tilt) * (0.12 + len / 2)]}
+                r={[-Math.PI / 2 + tilt, 0, 0]}
+                s={[0.09, len, 0.09]}
+              />
+            ))}
+          </group>
+          {[-1, 1].map((s) => (
+            <P key={s} g="cone" c={BLUE} p={[s * 0.13, 0.2, -0.02]} r={[0, 0, -s * 0.35]} s={[0.06, 0.14, 0.05]} />
+          ))}
+          <P g="ico" c={WHITE} p={[0, 0.05, 0.19]} s={[0.17, 0.12, 0.08]} />
+          {[-1, 1].map((s) => (
+            <P key={s} g="ico" c={BLACK} p={[s * 0.055, 0.05, 0.255]} s={[0.03, 0.055, 0.02]} />
+          ))}
+          <P g="ico" c={PEACH} p={[0, -0.08, 0.17]} s={[0.13, 0.09, 0.1]} />
+          <P g="ico" c={BLACK} p={[0, -0.03, 0.27]} s={0.03} />
         </group>
-      ))}
-      <group position={[0, 0.8, 0]}>
-        <P g="ico" c={BLUE} s={[0.26, 0.25, 0.25]} />
-        {QUILLS.map(([tilt, y, len], i) => (
-          <P
-            key={i}
-            g="cone"
-            c={BLUE}
-            p={[0, y + Math.sin(tilt) * (0.12 + len / 2), -Math.cos(tilt) * (0.12 + len / 2)]}
-            r={[-Math.PI / 2 + tilt, 0, 0]}
-            s={[0.09, len, 0.09]}
-          />
-        ))}
-        {[-1, 1].map((s) => (
-          <P key={s} g="cone" c={BLUE} p={[s * 0.13, 0.2, -0.02]} r={[0, 0, -s * 0.35]} s={[0.06, 0.14, 0.05]} />
-        ))}
-        <P g="ico" c={WHITE} p={[0, 0.05, 0.19]} s={[0.17, 0.12, 0.08]} />
-        {[-1, 1].map((s) => (
-          <P key={s} g="ico" c={BLACK} p={[s * 0.055, 0.05, 0.255]} s={[0.03, 0.055, 0.02]} />
-        ))}
-        <P g="ico" c={PEACH} p={[0, -0.08, 0.17]} s={[0.13, 0.09, 0.1]} />
-        <P g="ico" c={BLACK} p={[0, -0.03, 0.27]} s={[0.03, 0.03, 0.03]} />
       </group>
     </group>
   )
@@ -110,7 +127,7 @@ function SpinBall({ spin }) {
 }
 
 const v = () => new THREE.Vector3()
-const tmp = { pos: v(), up: v(), fwd: v(), right: v(), m: new THREE.Matrix4() }
+const tmp = { pos: v(), up: v(), fwd: v(), right: v(), m: new THREE.Matrix4(), q: new THREE.Quaternion() }
 
 // Coloca un objeto con su "arriba" en `up` y su frente en `fwd`
 function orient(obj, pos, up, fwd) {
@@ -120,13 +137,15 @@ function orient(obj, pos, up, fwd) {
   obj.position.copy(pos)
 }
 
+// Acerca `value` a `target` de forma suave e independiente de los fps
+const ease = (value, target, rate, dt) => value + (target - value) * (1 - Math.exp(-rate * dt))
+
 export function Sonic({ track, motion, mobile, onCollect }) {
   const root = useRef()
   const runner = useRef()
   const ball = useRef()
   const spin = useRef()
-  const legs = useRef([])
-  const arms = useRef([])
+  const rig = useRef({})
   const ghosts = useRef([])
   const puffs = useRef([])
   const rings = useRef([])
@@ -137,12 +156,41 @@ export function Sonic({ track, motion, mobile, onCollect }) {
     const meanR = track.ride.reduce((a, b) => a + b) / N
     const loopLen = TAU * track.loop.r
     const circleLen = TAU * meanR
+    const total = loopLen + circleLen
     const at = (theta) => {
       const x = (((theta / TAU) * N) % N + N) % N
       const i = Math.floor(x)
       return { r: THREE.MathUtils.lerp(track.ride[i], track.ride[(i + 1) % N], x - i), air: track.air[i] === 1 }
     }
     const dir = (theta, out) => out.copy(track.n0).multiplyScalar(Math.cos(theta)).addScaledVector(track.t0, Math.sin(theta))
+    // Cerca del loop, Sonic se cambia de carril: llega por el de entrada (-lane) y sale por el de salida (+lane)
+    const smooth = (x) => x * x * (3 - 2 * x)
+    const laneAt = (theta) => {
+      if (theta < 0.5) return track.lane * (1 - smooth(theta / 0.5))
+      if (theta > TAU - 0.5) return -track.lane * smooth((theta - (TAU - 0.5)) / 0.5)
+      return 0
+    }
+    // Dónde está Sonic a una distancia d sobre la pista: primero el loop, luego la vuelta al planeta
+    const sample = (d, out) => {
+      d = ((d % total) + total) % total
+      if (d < loopLen) {
+        const phi = (d / loopLen) * TAU
+        out.up.copy(track.n0).multiplyScalar(Math.cos(phi)).addScaledVector(track.t0, -Math.sin(phi))
+        out.pos.copy(track.loop.center).addScaledVector(out.up, -track.loop.r).addScaledVector(track.side, track.lane * ((2 * d) / loopLen - 1))
+        out.air = false
+        out.loop = true
+        out.theta = -1
+      } else {
+        const theta = ((d - loopLen) / circleLen) * TAU
+        const h = at(theta)
+        dir(theta, out.up)
+        out.pos.copy(out.up).multiplyScalar(h.r).addScaledVector(track.side, laneAt(theta))
+        out.air = h.air
+        out.loop = false
+        out.theta = theta
+      }
+      return out
+    }
     const ringSpots = track.ringThetas.map((theta) => {
       const up = dir(theta, v())
       const fwd = v().copy(track.n0).multiplyScalar(-Math.sin(theta)).addScaledVector(track.t0, Math.cos(theta))
@@ -155,7 +203,7 @@ export function Sonic({ track, motion, mobile, onCollect }) {
       const d = dir((i / N) * TAU, v()).dot(toCamera)
       if (d > best) [best, start] = [d, (i / N) * TAU]
     }
-    return { N, loopLen, circleLen, total: loopLen + circleLen, at, dir, ringSpots, startD: loopLen + (start / TAU) * circleLen }
+    return { total, sample, ringSpots, startD: loopLen + (start / TAU) * circleLen }
   }, [track])
 
   const fx = useMemo(
@@ -168,13 +216,23 @@ export function Sonic({ track, motion, mobile, onCollect }) {
 
   const sim = useRef({
     d: info.startD,
+    speed: 1,
+    boost: 0,
+    rev: 0,
+    curl: 0,
+    lean: 0.2,
+    phase: 0,
+    landT: -1,
     prevTheta: -1,
     prevAir: false,
     wasLoop: false,
     pending: false,
-    dashUntil: -1,
+    placed: false,
     history: [],
     gone: track.ringThetas.map(() => -1),
+    here: { pos: v(), up: v() },
+    ahead: { pos: v(), up: v() },
+    next: { pos: v(), up: v() },
     dustT: -1,
     dustPos: v(),
     dustUp: v(),
@@ -183,63 +241,98 @@ export function Sonic({ track, motion, mobile, onCollect }) {
 
   useFrame(({ clock }, delta) => {
     const t = clock.elapsedTime
+    const dt = Math.min(delta, 0.05)
     const s = sim.current
-    const { pos, up, fwd } = tmp
-    if (s.pending) {
-      s.pending = false
-      s.dashUntil = t + 2.5
-    }
-    const dashing = t < s.dashUntil
-    const speed = motion * (dashing ? 3 : 1)
-    s.d = (s.d + Math.min(delta, 0.05) * speed) % info.total
-
-    // Posición sobre la pista: primero el loop, luego la vuelta al planeta
-    const inLoop = s.d < info.loopLen
-    let air = false
-    let theta = -1
-    if (inLoop) {
-      const phi = (s.d / info.loopLen) * TAU
-      const { n0, t0 } = track
-      up.copy(n0).multiplyScalar(Math.cos(phi)).addScaledVector(t0, -Math.sin(phi))
-      fwd.copy(n0).multiplyScalar(Math.sin(phi)).addScaledVector(t0, Math.cos(phi))
-      pos.copy(track.loop.center).addScaledVector(up, -track.loop.r)
-    } else {
-      theta = ((s.d - info.loopLen) / info.circleLen) * TAU
-      const here = info.at(theta)
-      air = here.air
-      info.dir(theta, up)
-      fwd.copy(track.n0).multiplyScalar(-Math.sin(theta)).addScaledVector(track.t0, Math.cos(theta))
-      pos.copy(up).multiplyScalar(here.r)
-    }
-    orient(root.current, pos, up, fwd)
-
-    // Corre a pie en el suelo y en el loop; es bola en el aire y en el spin dash
-    const rolling = air || dashing
-    runner.current.visible = !rolling
-    ball.current.visible = rolling
-    const swing = Math.sin(t * 16 * Math.max(speed, 0.0001)) * 0.9 * motion
-    legs.current.forEach((l, i) => (l.rotation.x = i ? swing : -swing))
-    arms.current.forEach((a, i) => (a.rotation.x = i ? -swing * 0.8 : swing * 0.8))
-    spin.current.rotation.x += Math.min(delta, 0.05) * speed * 18
-
-    // Estela: copias de la bola en posiciones pasadas
-    s.history.push(pos.clone().addScaledVector(up, 0.3 * SONIC_SCALE))
-    if (s.history.length > 24) s.history.shift()
-    ghosts.current.forEach((g, i) => {
-      const h = s.history[s.history.length - 1 - (i + 1) * (dashing ? 3 : 2)]
-      g.visible = rolling && !!h
-      if (h) g.position.copy(h)
-    })
-
-    // Polvo al aterrizar o al salir del loop
-    if ((s.prevAir && !air && !inLoop) || (s.wasLoop && !inLoop)) {
+    const dust = (pos, up) => {
       s.dustT = t
       s.dustPos.copy(pos)
       s.dustUp.copy(up)
       s.dustDirs.forEach((d) => d.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).projectOnPlane(up).normalize())
     }
-    s.prevAir = air
-    s.wasLoop = inLoop
+
+    // Spin dash: se agacha y acelera girando en su lugar (rev), luego sale disparado y frena poco a poco
+    if (s.pending) {
+      s.pending = false
+      s.rev = 0.45
+    }
+    if (s.rev > 0) {
+      s.rev -= dt
+      if (s.rev <= 0) s.boost = 2.4
+    }
+    s.boost *= Math.exp(-dt / 1.3)
+
+    // Velocidad con inercia: acelera en el loop y con el spin dash, y vuelve suave a la normal
+    const here = info.sample(s.d, s.here)
+    const target = s.rev > 0 ? 0 : 1 + s.boost + (here.loop ? 0.35 : 0)
+    s.speed = ease(s.speed, target, s.rev > 0 ? 9 : 2.5, dt)
+    s.d = (s.d + dt * s.speed * motion) % info.total
+    info.sample(s.d, here)
+
+    // Frente = hacia dónde va de verdad (sube y baja en los saltos); "arriba" perpendicular a eso
+    const next = info.sample(s.d + 0.02, s.next)
+    const { up, fwd, q, m, right } = tmp
+    fwd.subVectors(next.pos, here.pos).normalize()
+    up.copy(here.up).addScaledVector(fwd, -here.up.dot(fwd)).normalize()
+    right.crossVectors(up, fwd)
+    q.setFromRotationMatrix(m.makeBasis(right, up, fwd))
+    if (s.placed) root.current.quaternion.slerp(q, 1 - Math.exp(-20 * dt))
+    else root.current.quaternion.copy(q)
+    s.placed = true
+    root.current.position.copy(here.pos)
+
+    // Se hace bola un poco antes de saltar y se desenrolla un poco antes de aterrizar
+    const ahead = info.sample(s.d + 0.08, s.ahead)
+    const rolling = ahead.air || s.rev > 0 || s.boost > 0.8
+    s.curl = ease(s.curl, rolling ? 1 : 0, 14, dt)
+    if (s.prevAir && !here.air && !here.loop) {
+      s.landT = t
+      dust(here.pos, up)
+    }
+    if (s.wasLoop && !here.loop) dust(here.pos, up)
+    if (s.rev > 0 && t - s.dustT > 0.15) dust(here.pos, up)
+    s.prevAir = here.air
+    s.wasLoop = here.loop
+
+    // Transición corredor ⇄ bola: se encoge hacia los pies mientras crece la bola; al aterrizar se aplasta y rebota
+    const c = s.curl
+    const squash = 0.22 * Math.max(0, 1 - (t - s.landT) / 0.22)
+    runner.current.visible = c < 0.9
+    runner.current.scale.set(1 - 0.25 * c + squash * 0.5, Math.max(1 - 0.9 * c - squash, 0.01), 1 - 0.25 * c + squash * 0.5)
+    ball.current.visible = c > 0.05
+    ball.current.scale.setScalar(Math.max(c, 0.001))
+    ball.current.position.set(s.rev > 0 ? Math.sin(t * 90) * 0.03 : 0, 0.3 * c, 0)
+    spin.current.rotation.x += dt * (s.speed * 18 * motion + (s.rev > 0 ? 50 : 0))
+
+    // Ciclo de carrera: cadera, rodilla y tobillo; brazos en contrafase con codos doblados; torso, cabeza y púas acompañan
+    s.phase += dt * Math.min(8 + 14 * s.speed, 32) * motion
+    s.lean = ease(s.lean, (0.2 + 0.08 * Math.min(s.speed, 3)) * (motion ? 1 : 0.3), 4, dt)
+    const ph = s.phase
+    const g = motion
+    const b = rig.current
+    b.hips.forEach((hip, i) => {
+      const p = ph + i * Math.PI
+      hip.rotation.x = -0.8 * Math.sin(p) * g
+      b.knees[i].rotation.x = (0.15 + 1.25 * Math.max(0, Math.cos(p))) * g
+      b.ankles[i].rotation.x = -(hip.rotation.x + b.knees[i].rotation.x) * 0.5
+      b.shoulders[i].rotation.x = 0.9 * Math.sin(p) * g
+      b.elbows[i].rotation.x = -(0.9 + 0.35 * Math.sin(p)) * g - 0.2
+    })
+    b.body.position.y = 0.03 * (0.5 + 0.5 * Math.cos(2 * ph)) * g
+    b.body.rotation.x = s.lean
+    b.torso.rotation.set(0.05 * Math.sin(2 * ph) * g, 0.2 * Math.sin(ph) * g, 0)
+    b.head.rotation.set(-s.lean * 0.5 + 0.05 * Math.sin(2 * ph - 0.6) * g, 0, 0.04 * Math.sin(ph) * g)
+    b.quills.rotation.x = (0.08 * Math.sin(2 * ph - 1.3) - 0.06 * Math.min(Math.max(s.speed - 1, 0), 2)) * g
+
+    // Estela: copias de la bola en posiciones pasadas, solo cuando va rápido hecho bola
+    s.history.push(here.pos.clone().addScaledVector(up, 0.3 * SONIC_SCALE))
+    if (s.history.length > 24) s.history.shift()
+    ghosts.current.forEach((gh, i) => {
+      const h = s.history[s.history.length - 1 - (i + 1) * (s.speed > 1.8 ? 3 : 2)]
+      gh.visible = c > 0.6 && s.speed > 0.7 && !!h
+      if (h) gh.position.copy(h)
+    })
+
+    // Polvo
     const kd = t - s.dustT
     puffs.current.forEach((p, i) => {
       p.visible = s.dustT >= 0 && kd < 0.45
@@ -250,6 +343,7 @@ export function Sonic({ track, motion, mobile, onCollect }) {
     fx.dustMat.opacity = 0.7 * Math.max(0, 1 - kd / 0.45)
 
     // Anillos de la pista: Sonic los recoge al pasar
+    const theta = here.theta
     info.ringSpots.forEach((spot, k) => {
       if (s.gone[k] < 0 && s.prevTheta >= 0 && theta >= 0 && s.prevTheta < spot.theta && theta >= spot.theta) {
         s.gone[k] = t
@@ -271,7 +365,7 @@ export function Sonic({ track, motion, mobile, onCollect }) {
     <>
       <group ref={root} scale={SONIC_SCALE}>
         <group ref={runner}>
-          <Runner legs={legs} arms={arms} />
+          <Runner rig={rig} />
         </group>
         <group ref={ball} position={[0, 0.3, 0]} visible={false}>
           <SpinBall spin={spin} />
