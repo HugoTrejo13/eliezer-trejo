@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { profile, nav } from './data.js'
+import Sections from './Sections.jsx'
 
 const Planet = lazy(() => import('./Planet.jsx'))
 
@@ -270,6 +271,7 @@ export default function App() {
       <Navbar rings={rings} />
       <main id="main">
         <Hero onCollect={collect} />
+        <Sections />
       </main>
       <Footer />
     </>

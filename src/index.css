@@ -80,7 +80,94 @@ body {
   animation: blink 1.2s steps(2, start) infinite;
 }
 
+/* --- Fase 3 --- */
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Tarjetas de About: leve inclinación al pasar el mouse */
+.tilt { transition: transform 0.25s ease; }
+.tilt:hover { transform: perspective(800px) rotateX(4deg) rotateY(-4deg) translateY(-4px); }
+
+/* Monitor de item de Sonic: caja gris, pantalla clara con el logo, patitas */
+.monitor-box {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  padding: 7px;
+  border-radius: 10px;
+  background: linear-gradient(#e3e7ef, #9aa3b5);
+  box-shadow: inset 0 -4px 0 #6b7388, 0 4px 0 #2b2f3a;
+}
+.monitor-box::after {
+  content: "";
+  position: absolute;
+  inset: auto 16px -9px;
+  height: 7px;
+  border-radius: 0 0 4px 4px;
+  background: #2b2f3a;
+}
+.monitor-screen {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  border-radius: 6px;
+  background: repeating-linear-gradient(#f4f7fc 0 2px, #e4e9f3 2px 3px);
+  box-shadow: inset 0 0 0 2px #2b2f3a;
+}
+.monitor-screen img { width: 68%; height: 68%; object-fit: contain; }
+.monitor:hover .monitor-box { animation: monitor-bounce 0.45s ease-out; }
+@keyframes monitor-bounce {
+  40% { transform: translateY(-10px); }
+  70% { transform: translateY(2px); }
+}
+
+/* Poste de checkpoint: gira una vez cuando lo pasas */
+.starpost-on { animation: starpost-spin 0.7s ease-out; }
+@keyframes starpost-spin {
+  from { transform: rotateY(0); }
+  to { transform: rotateY(720deg); }
+}
+
+/* Chaos Emeralds: las completadas brillan; las en curso, apagadas */
+.emerald.is-pending { filter: grayscale(0.7) brightness(0.65); opacity: 0.45; }
+.emerald.is-done { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--gem) 55%, transparent)); }
+.emerald.is-selected { background: color-mix(in srgb, var(--gem) 14%, transparent); }
+.emerald:hover { transform: translateY(-4px); }
+.emeralds-seen .emerald { animation: emerald-in 0.5s calc(var(--i) * 90ms) backwards cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes emerald-in {
+  from { transform: scale(0.4) translateY(20px); opacity: 0; }
+}
+
+.act-clear { animation: act-clear 0.6s steps(6) backwards; }
+@keyframes act-clear {
+  from { letter-spacing: 0.6em; opacity: 0; }
+}
+
+/* Pop-up de detalle (<dialog>) */
+.detail {
+  width: min(900px, 100% - 2rem);
+  max-width: none;
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  overflow-y: auto;
+  border: 1px solid var(--color-line);
+  border-radius: 1.25rem;
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+.detail::backdrop { background: rgb(4 6 14 / 0.78); backdrop-filter: blur(4px); }
+.detail[open] { animation: detail-in 0.15s ease-out; }
+@keyframes detail-in {
+  from { opacity: 0; transform: scale(0.97); }
+}
+@media (max-width: 639px) {
+  .detail { width: 100%; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
+}
+html:has(.detail[open]) { overflow: hidden; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .ring-spin, .blink { animation: none; }
+  .ring-spin, .blink, .starpost-on, .emeralds-seen .emerald, .act-clear, .detail[open], .monitor:hover .monitor-box { animation: none; }
+  .tilt:hover, .emerald:hover { transform: none; }
 }
