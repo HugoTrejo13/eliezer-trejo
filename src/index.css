@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* Paleta "Noche Green Hill" — ver PLAN.md §4.1 */
+@theme {
+  --color-bg: #070b1a;
+  --color-surface: #0f1630;
+  --color-line: #1c2547;
+  --color-ink: #e9edf7;
+  --color-muted: #8e97b5;
+  --color-grass: #3ddc6a;
+  --color-gold: #ffc93c;
+  --color-sonic: #2f6bff;
+  --color-soil: #c8743a;
+  --color-soil-dark: #8a4a22;
+
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-pixel: "Press Start 2P", ui-monospace, monospace;
+}
+
+/* Modo Super (Konami): todo el acento se vuelve dorado */
+.super {
+  --color-grass: #ffd84d;
+  --color-sonic: #ffb000;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 6rem;
+  background: var(--color-bg);
+}
+
+body {
+  @apply bg-bg font-sans text-ink antialiased;
+}
+
+::selection {
+  background: var(--color-gold);
+  color: var(--color-bg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Patrón de cuadros de Green Hill, usado como franja decorativa */
+.checker {
+  background-color: var(--color-soil-dark);
+  background-image: conic-gradient(var(--color-soil) 25%, transparent 0 50%, var(--color-soil) 0 75%, transparent 0);
+  background-size: 16px 16px;
+}
+
+/* Anillo girando: placeholder mientras carga el planeta */
+@keyframes ring-spin {
+  to { transform: rotateY(360deg); }
+}
+.ring-spin {
+  animation: ring-spin 1.6s linear infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0.25; }
+}
+.blink {
+  animation: blink 1.2s steps(2, start) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .ring-spin, .blink { animation: none; }
+}
