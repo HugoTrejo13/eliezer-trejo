@@ -251,6 +251,31 @@ function Navbar({ rings, onSuper }) {
   )
 }
 
+// Anillo de Sonic arriba de la línea del hero: se balancea y con clic se recoge (+1 RINGS) y reaparece
+function RailRing({ onCollect }) {
+  const [pops, setPops] = useState(0)
+  const last = useRef(-Infinity)
+  return (
+    <span
+      key={pops}
+      aria-hidden="true"
+      onClick={(e) => {
+        if (e.timeStamp - last.current < 1200) return
+        last.current = e.timeStamp
+        setPops(pops + 1)
+        onCollect()
+      }}
+      className={`rail-ring ${pops ? 'coin-got' : ''}`}
+    >
+      <svg viewBox="0 0 32 36">
+        <ellipse cx="16" cy="18" rx="12" ry="14" fill="none" stroke="#a8740a" strokeWidth="7.5" />
+        <ellipse cx="16" cy="18" rx="12" ry="14" fill="none" stroke="#ffc93c" strokeWidth="5" />
+        <path d="M8.6 11 Q7 16 8 22" fill="none" stroke="#fff6cc" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    </span>
+  )
+}
+
 // En pantallas grandes (xl) el planeta ocupa todo el alto bajo el header y su columna llega al borde derecho, como en el de César
 function Hero({ onCollect, superMode }) {
   return (
@@ -259,24 +284,23 @@ function Hero({ onCollect, superMode }) {
       className="relative mx-auto grid min-h-svh max-w-6xl items-center gap-8 px-4 pt-28 pb-16 sm:px-6 lg:grid-cols-[1.1fr_1fr] xl:max-w-none xl:grid-cols-[36rem_1fr] xl:pt-24 xl:pr-0 xl:pb-0 xl:pl-[calc(50%-34.5rem)]"
     >
       <div className="flex gap-5">
-        <div className="mt-3 hidden flex-col items-center sm:flex" aria-hidden="true">
-          <span className="size-4 rounded-full bg-grass" />
-          <span className="h-64 w-1 bg-gradient-to-b from-grass to-transparent" />
+        <div className="hidden flex-col items-center sm:flex" aria-hidden="true">
+          <RailRing onCollect={onCollect} />
+          <span className="h-64 w-1 bg-gradient-to-b from-sonic to-transparent" />
         </div>
 
         <div>
-          <h1 className="text-[2.6rem] font-extrabold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">
-            Hi, I'm
-            <span className="block bg-gradient-to-r from-sonic to-grass bg-clip-text pb-1 text-transparent">{profile.name}</span>
+          {/* Como César pero invertido: saludo dorado (como los anillos) y el nombre completo con letras tipo logo de Sonic */}
+          <h1 className="text-[2.6rem] font-extrabold leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
+            <span className="text-gold">Hi, I'm</span>{' '}
+            <span className="sonic-letters">
+              Hugo
+              <br />
+              Eliezer Trejo
+            </span>
           </h1>
-          <p className="mt-4 text-xl font-semibold text-ink sm:text-2xl">{profile.role}</p>
-          <p className="mt-3 max-w-xl text-base leading-relaxed text-muted sm:text-lg">{profile.tagline}</p>
-
-          <ul className="mt-6 flex flex-wrap gap-2">
-            {profile.highlights.map((h) => (
-              <li key={h} className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink/90">{h}</li>
-            ))}
-          </ul>
+          <p className="ribbon mt-5 text-[0.625rem] sm:text-[0.8125rem]">{profile.role}</p>
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-muted sm:text-lg">{profile.tagline}</p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a href="#projects" className="rounded-xl bg-gold px-5 py-3 font-semibold text-bg transition hover:brightness-110">View projects</a>

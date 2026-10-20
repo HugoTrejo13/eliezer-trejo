@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { about, achievements, education, emeralds, experience, profile, projects, stack } from './data.js'
+import { about, achievements, education, experience, profile, projects, stack } from './data.js'
 
 const Goal = lazy(() => import('./Goal.jsx'))
 const WEB3FORMS_KEY = import.meta.env.VITE_WEB3FORMS_KEY
@@ -497,81 +497,6 @@ function Detail({ item, onClose }) {
   )
 }
 
-// --- Chaos Emeralds: las 7 certificaciones ---
-
-// Mezcla un color hex con blanco (t > 0) o negro (t < 0)
-function shade(hex, t) {
-  const n = parseInt(hex.slice(1), 16)
-  const target = t > 0 ? 255 : 0
-  const mix = (c) => Math.round(c + (target - c) * Math.abs(t))
-  return `rgb(${mix(n >> 16)},${mix((n >> 8) & 255)},${mix(n & 255)})`
-}
-
-function Gem({ color }) {
-  const facets = [
-    ['14,6 46,6 44,9 16,9', 0.55],
-    ['16,9 44,9 50,21 10,21', 0.3],
-    ['14,6 16,9 10,21 2,22', 0],
-    ['46,6 58,22 50,21 44,9', -0.35],
-    ['2,22 10,21 30,60', -0.1],
-    ['10,21 50,21 30,60', 0.12],
-    ['50,21 58,22 30,60', -0.45],
-  ]
-  return (
-    <svg viewBox="0 0 60 64" className="h-16 w-14 sm:h-20 sm:w-[4.4rem]" aria-hidden="true">
-      {facets.map(([pts, t]) => (
-        <polygon key={pts} points={pts} fill={shade(color, t)} stroke={shade(color, -0.55)} strokeWidth="0.8" strokeLinejoin="round" />
-      ))}
-      <polygon points="19,11 27,11 24,18 16,18" fill="#fff" opacity="0.55" />
-    </svg>
-  )
-}
-
-function Emeralds() {
-  const ref = useRef()
-  const seen = useSeen(ref)
-  const [selected, setSelected] = useState(0)
-  const collected = emeralds.filter((e) => e.done).length
-  const e = emeralds[selected]
-
-  return (
-    <Section id="emeralds">
-      <Heading zone="SPECIAL STAGE" title="Chaos Emeralds." center>
-        My certifications. {collected} collected, {emeralds.length - collected} more on the way.
-      </Heading>
-      <div ref={ref} className={seen ? 'emeralds-seen' : ''}>
-        <ul className="mt-12 flex flex-wrap justify-center gap-3 sm:gap-5">
-          {emeralds.map((gem, i) => (
-            <li key={gem.name}>
-              <button
-                type="button"
-                aria-pressed={selected === i}
-                aria-label={`${gem.name}, ${gem.issuer}, ${gem.date}`}
-                onMouseEnter={() => setSelected(i)}
-                onFocus={() => setSelected(i)}
-                onClick={() => setSelected(i)}
-                className={`emerald rounded-xl p-1 transition ${gem.done ? 'is-done' : 'is-pending'} ${selected === i ? 'is-selected' : ''}`}
-                style={{ '--gem': gem.color, '--i': i }}
-              >
-                <Gem color={gem.color} />
-              </button>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-6 text-center font-pixel text-[10px] text-gold sm:text-[11px]">
-          {collected} / {emeralds.length} CHAOS EMERALDS
-        </p>
-        <div className="mx-auto mt-6 max-w-md rounded-2xl border border-line bg-surface px-5 py-4 text-center" aria-live="polite">
-          <p className="font-semibold">{e.name}</p>
-          <p className="mt-1 text-sm text-muted">
-            {e.issuer} · <span className={e.done ? 'text-grass' : 'text-gold'}>{e.date}</span>
-          </p>
-        </div>
-      </div>
-    </Section>
-  )
-}
-
 // --- Contact: formulario + letrero de meta 3D ---
 
 function Contact() {
@@ -684,7 +609,6 @@ export default function Sections() {
       <Stack />
       <Projects onOpen={setOpen} />
       <Achievements onOpen={setOpen} />
-      <Emeralds />
       <Contact />
       {open && <Detail key={open.slug} item={open} onClose={() => setOpen(null)} />}
     </>

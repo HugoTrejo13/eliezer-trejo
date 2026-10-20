@@ -12,7 +12,6 @@ export const profile = {
   github: 'https://github.com/HugoTrejo13',
   repo: 'https://github.com/HugoTrejo13/eliezer-trejo',
   cv: '/Hugo_Eliezer_Trejo_CV.pdf',
-  highlights: ['AWS Certified Cloud Practitioner', 'HPE Innovation Challenge Top 6', 'GPA 94/100'],
 }
 
 export const nav = [
@@ -49,6 +48,16 @@ export const experience = [
       'Led team dailies and weekly capacity planning; produced status reports, change requests and ISO-compliant documentation for clients and leadership.',
     ],
   },
+  {
+    title: 'Sales Associate & Customer Service',
+    org: 'Mr. CD',
+    date: 'May 2023 – Sep 2023',
+    place: 'Guadalajara, Mexico',
+    points: [
+      'Advised customers on choosing musical instruments, with technical guidance and personalized recommendations that contributed directly to department sales.',
+      "Operated the company's point-of-sale and inventory software for transactions, stock tracking and daily reporting.",
+    ],
+  },
 ]
 
 export const education = [
@@ -67,16 +76,11 @@ const devicon = (path) => `https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/
 export const stack = [
   { name: 'Java', icon: devicon('java/java-original') },
   { name: 'Python', icon: devicon('python/python-original') },
+  { name: 'Spring Framework', icon: devicon('spring/spring-original-wordmark') },
   { name: 'Spring Boot', icon: devicon('spring/spring-original') },
-  { name: 'FastAPI', icon: devicon('fastapi/fastapi-original') },
-  { name: 'Flask', icon: devicon('flask/flask-original') },
   { name: 'PostgreSQL', icon: devicon('postgresql/postgresql-original') },
-  { name: 'MySQL', icon: devicon('mysql/mysql-original') },
-  { name: 'MariaDB', icon: devicon('mariadb/mariadb-original') },
   { name: 'MongoDB', icon: devicon('mongodb/mongodb-original') },
-  { name: 'RabbitMQ', icon: devicon('rabbitmq/rabbitmq-original') },
   { name: 'AWS', icon: devicon('amazonwebservices/amazonwebservices-original-wordmark') },
-  { name: 'Azure', icon: devicon('azure/azure-original') },
   { name: 'Azure DevOps', icon: devicon('azuredevops/azuredevops-original') },
   { name: 'Docker', icon: devicon('docker/docker-original') },
   { name: 'Linux', icon: devicon('linux/linux-plain') },
@@ -246,15 +250,4 @@ export const achievements = [
     ],
     links: {},
   },
-]
-
-// Chaos Emeralds: las 7 certificaciones del CV
-export const emeralds = [
-  { color: '#3ddc6a', name: 'AWS Certified Cloud Practitioner', issuer: 'Amazon Web Services', date: 'Feb 2026 · valid through Feb 2029', done: true },
-  { color: '#3de0e8', name: 'AWS SimuLearn: Cloud Practitioner', issuer: 'Amazon Web Services', date: 'Oct 2026', done: true },
-  { color: '#ffd93c', name: 'Google Prompting Essentials', issuer: 'Google', date: 'Jun 2026', done: true },
-  { color: '#a35bff', name: 'Claude Code in Action', issuer: 'Anthropic', date: 'Completed', done: true },
-  { color: '#2f6bff', name: 'Scrum Fundamentals Certified', issuer: 'SCRUMstudy', date: 'Completed', done: true },
-  { color: '#ff4d5e', name: 'MongoDB Java Developer Path', issuer: 'MongoDB University', date: 'In progress · Dec 2026', done: false },
-  { color: '#e9edf7', name: 'Oracle Java Foundations', issuer: 'Oracle University', date: 'In progress · Dec 2026', done: false },
 ]

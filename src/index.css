@@ -131,16 +131,6 @@ body {
   to { transform: rotateY(720deg); }
 }
 
-/* Chaos Emeralds: las completadas brillan; las en curso, apagadas */
-.emerald.is-pending { filter: grayscale(0.7) brightness(0.65); opacity: 0.45; }
-.emerald.is-done { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--gem) 55%, transparent)); }
-.emerald.is-selected { background: color-mix(in srgb, var(--gem) 14%, transparent); }
-.emerald:hover { transform: translateY(-4px); }
-.emeralds-seen .emerald { animation: emerald-in 0.5s calc(var(--i) * 90ms) backwards cubic-bezier(0.34, 1.56, 0.64, 1); }
-@keyframes emerald-in {
-  from { transform: scale(0.4) translateY(20px); opacity: 0; }
-}
-
 .act-clear { animation: act-clear 0.6s steps(6) backwards; }
 @keyframes act-clear {
   from { letter-spacing: 0.6em; opacity: 0; }
@@ -222,6 +212,53 @@ html:has(.detail[open]) { overflow: hidden; }
   60% { transform: translateY(-4.5px); }
 }
 
+/* Nombre con letras tipo logo de Sonic: blancas, rectas, contorno azul y sombra */
+.sonic-letters {
+  color: #fff;
+  text-shadow:
+    -0.03em -0.03em 0 #1f3fb8, 0.03em -0.03em 0 #1f3fb8, -0.03em 0.03em 0 #1f3fb8, 0.03em 0.03em 0 #1f3fb8,
+    0 0.05em 0 #1f3fb8, 0.07em 0.09em 0 #0b1640;
+}
+
+/* Listón rojo del logo de Sonic ("THE HEDGEHOG") para el puesto */
+.ribbon {
+  display: inline-block;
+  padding: 0.7em 2.2em 0.8em;
+  background: #e0242c;
+  color: #fff;
+  font-family: var(--font-pixel);
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 1em) 50%, 100% 100%, 0 100%, 1em 50%);
+  box-shadow: inset 0 -0.3em 0 rgb(0 0 0 / 0.25);
+}
+
+/* Anillo arriba de la línea del hero: se balancea sin quedar de canto y se recoge con clic */
+.rail-ring { position: relative; display: block; width: 1.6rem; height: 1.85rem; cursor: pointer; }
+.rail-ring svg { display: block; width: 100%; height: 100%; animation: wobble 2.4s ease-in-out infinite; }
+@keyframes wobble {
+  0%, 100% { transform: perspective(200px) rotateY(-40deg); }
+  50% { transform: perspective(200px) rotateY(40deg); }
+}
+.coin-got svg { animation: coin-got 1.2s ease-out; }
+.coin-got::after {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  background: #fff6cc;
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  animation: coin-flash 0.5s ease-out forwards;
+}
+@keyframes coin-got {
+  20%, 75% { transform: scale(0); opacity: 0; }
+}
+@keyframes coin-flash {
+  from { transform: scale(0.3); }
+  50% { opacity: 1; }
+  to { transform: scale(1.3) rotate(45deg); opacity: 0; }
+}
+
 /* GAME OVER: cada palabra entra por su lado, como en Sonic 1 */
 .game-over { text-shadow: 4px 4px 0 var(--color-sonic); }
 .game-over span { display: inline-block; animation: from-left 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
@@ -235,8 +272,8 @@ html:has(.detail[open]) { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .ring-spin, .blink, .starpost-on, .emeralds-seen .emerald, .act-clear, .detail[open], .monitor:hover .monitor-box, .boing *, .game-over span { animation: none; }
+  .ring-spin, .blink, .starpost-on, .act-clear, .detail[open], .monitor:hover .monitor-box, .boing *, .game-over span, .rail-ring svg, .coin-got::after { animation: none; }
   .toast { animation: fade-out 0.5s 1.8s forwards; }
-  .tilt:hover, .emerald:hover { transform: none; }
+  .tilt:hover { transform: none; }
   .planet-glow::before { transition: none; }
 }
