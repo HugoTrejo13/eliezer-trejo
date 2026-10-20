@@ -121,19 +121,78 @@ function Sky() {
   return <canvas ref={ref} className="stars" aria-hidden="true" />
 }
 
+const KONAMI = 'ArrowUp,ArrowUp,ArrowDown,ArrowDown,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,b,a'
+
+// Modo Super: Konami code con teclado o 7 toques seguidos a RINGS (celular). Se repite para apagarlo
+function useSuper() {
+  const [toggles, setToggles] = useState(0)
+  const on = toggles % 2 === 1
+  const toggle = useCallback(() => setToggles((n) => n + 1), [])
+
+  useEffect(() => {
+    let keys = []
+    const onKey = (e) => {
+      if (e.target.matches?.('input, textarea')) return
+      keys = [...keys, e.key.length === 1 ? e.key.toLowerCase() : e.key].slice(-10)
+      if (keys.join() === KONAMI) {
+        keys = []
+        toggle()
+      }
+    }
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  }, [toggle])
+
+  // El acento de todo el sitio pasa a dorado (clase .super en index.css)
+  useEffect(() => {
+    document.documentElement.classList.toggle('super', on)
+  }, [on])
+
+  // Chispas doradas que siguen al mouse
+  useEffect(() => {
+    if (!on || !matchMedia('(pointer: fine) and (prefers-reduced-motion: no-preference)').matches) return
+    let last = 0
+    const onMove = (e) => {
+      if (e.timeStamp - last < 40) return
+      last = e.timeStamp
+      const spark = document.createElement('span')
+      spark.className = 'spark'
+      spark.style.cssText = `left:${e.clientX}px;top:${e.clientY}px;--dx:${Math.random() * 40 - 20}px;--dy:${10 + Math.random() * 30}px`
+      spark.onanimationend = () => spark.remove()
+      document.body.append(spark)
+    }
+    addEventListener('pointermove', onMove)
+    return () => removeEventListener('pointermove', onMove)
+  }, [on])
+
+  return { on, toggles, toggle }
+}
+
 const pad = (n, size = 3) => String(n).padStart(size, '0')
 const clock = (s) => `${Math.floor(s / 60)}:${pad(s % 60, 2)}`
 
-function Hud({ rings }) {
+function Hud({ rings, onSuper }) {
   const [seconds, setSeconds] = useState(0)
+  const taps = useRef({ n: 0, last: 0 })
   useEffect(() => {
     const id = setInterval(() => setSeconds((s) => s + 1), 1000)
     return () => clearInterval(id)
   }, [])
 
+  // 7 toques seguidos (las 7 Chaos Emeralds) activan el modo Super
+  const tap = (e) => {
+    const t = taps.current
+    t.n = e.timeStamp - t.last < 800 ? t.n + 1 : 1
+    t.last = e.timeStamp
+    if (t.n === 7) {
+      t.n = 0
+      onSuper()
+    }
+  }
+
   return (
-    <div className="flex items-center gap-4 font-pixel text-[9px] sm:gap-6 sm:text-[10px]" aria-hidden="true">
-      <span><span className="text-gold">RINGS</span> {pad(rings)}</span>
+    <div className="flex items-center gap-4 font-pixel text-[0.5625rem] sm:gap-6 sm:text-[0.625rem]" aria-hidden="true">
+      <span onClick={tap} className="-my-2 touch-manipulation py-2 select-none"><span className="text-gold">RINGS</span> {pad(rings)}</span>
       <span><span className="text-gold">TIME</span> {clock(seconds)}</span>
       <span className="flex items-center gap-2 text-grass">
         <span className="blink inline-block size-2 rounded-full bg-grass" />
@@ -143,7 +202,7 @@ function Hud({ rings }) {
   )
 }
 
-function Navbar({ rings }) {
+function Navbar({ rings, onSuper }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -176,7 +235,7 @@ function Navbar({ rings }) {
       </nav>
 
       <div className="mx-auto max-w-6xl px-4 pb-2.5 sm:px-6">
-        <Hud rings={rings} />
+        <Hud rings={rings} onSuper={onSuper} />
       </div>
 
       {open && (
@@ -192,9 +251,13 @@ function Navbar({ rings }) {
   )
 }
 
-function Hero({ onCollect }) {
+// En pantallas grandes (xl) el planeta ocupa todo el alto bajo el header y su columna llega al borde derecho, como en el de César
+function Hero({ onCollect, superMode }) {
   return (
-    <section id="top" className="relative mx-auto grid min-h-svh max-w-6xl items-center gap-8 px-4 pt-28 pb-16 sm:px-6 lg:grid-cols-[1.1fr_1fr]">
+    <section
+      id="top"
+      className="relative mx-auto grid min-h-svh max-w-6xl items-center gap-8 px-4 pt-28 pb-16 sm:px-6 lg:grid-cols-[1.1fr_1fr] xl:max-w-none xl:grid-cols-[36rem_1fr] xl:pt-24 xl:pr-0 xl:pb-0 xl:pl-[calc(50%-34.5rem)]"
+    >
       <div className="flex gap-5">
         <div className="mt-3 hidden flex-col items-center sm:flex" aria-hidden="true">
           <span className="size-4 rounded-full bg-grass" />
@@ -224,7 +287,7 @@ function Hero({ onCollect }) {
       </div>
 
       <div
-        className="relative -mx-4 h-[22rem] bg-[radial-gradient(circle_at_center,rgba(47,107,255,0.22),transparent_62%)] sm:-mx-6 sm:h-[28rem] lg:h-[36rem]"
+        className="planet-glow relative -mx-4 h-[24rem] sm:-mx-6 sm:h-[28rem] lg:h-[36rem] xl:mx-0 xl:h-[calc(100svh-6rem)] xl:min-h-[30rem]"
         role="img"
         aria-label="Low-poly Green Hill planet with golden rings in orbit. Click a ring to collect it."
       >
@@ -235,7 +298,7 @@ function Hero({ onCollect }) {
             </div>
           }
         >
-          <Planet onCollect={onCollect} />
+          <Planet onCollect={onCollect} superMode={superMode} />
         </Suspense>
       </div>
     </section>
@@ -258,9 +321,79 @@ function Footer() {
   )
 }
 
+// Resorte de Sonic: aparece al pasar el hero y te regresa arriba
+function Spring() {
+  const [show, setShow] = useState(false)
+  const [jumps, setJumps] = useState(0)
+  useEffect(() => {
+    const io = new IntersectionObserver(([e]) => setShow(!e.isIntersecting))
+    io.observe(document.getElementById('top'))
+    return () => io.disconnect()
+  }, [])
+
+  return (
+    <button
+      type="button"
+      aria-label="Back to top"
+      inert={!show}
+      onClick={() => {
+        setJumps(jumps + 1)
+        setTimeout(() => scrollTo({ top: 0 }), 120) // primero se comprime, luego sale disparado
+      }}
+      className={`spring fixed right-4 bottom-4 z-30 grid size-12 place-items-center rounded-2xl border border-line bg-surface/90 backdrop-blur motion-safe:transition sm:right-6 sm:bottom-6 ${show ? '' : 'translate-y-4 opacity-0'}`}
+    >
+      <svg key={jumps} viewBox="0 0 32 36" className={`size-8 overflow-visible ${jumps ? 'boing' : ''}`} aria-hidden="true">
+        <rect x="5" y="29" width="22" height="6" rx="1.5" fill="#6b7388" />
+        <path className="spring-coil" d="M9 28 23 25 9 22 23 19 9 16 23 13" fill="none" stroke="#c9cfdf" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <g className="spring-plate">
+          <rect x="3" y="6" width="26" height="7" rx="2" fill="#e0242c" />
+          <rect x="5" y="7" width="22" height="2" rx="1" fill="#ff7a7f" />
+        </g>
+      </svg>
+    </button>
+  )
+}
+
+// 404: cualquier otra ruta es GAME OVER, con la cuenta de CONTINUE de Sonic 1
+export function GameOver() {
+  const [count, setCount] = useState(9)
+  useEffect(() => {
+    if (count === 0) {
+      location.replace('/')
+      return
+    }
+    const id = setTimeout(() => setCount(count - 1), count === 9 ? 2000 : 1000)
+    return () => clearTimeout(id)
+  }, [count])
+
+  return (
+    <>
+      <Sky />
+      <main className="grid min-h-svh place-items-center overflow-hidden px-4 text-center">
+        <div>
+          <h1 className="game-over font-pixel text-4xl leading-tight text-gold sm:text-6xl">
+            <span>GAME</span> <span>OVER</span>
+          </h1>
+          <p className="act-clear mt-12 font-pixel text-xs sm:text-sm" style={{ animationDelay: '1s' }}>
+            CONTINUE? <span className="text-gold">{count}</span>
+          </p>
+          <a href="/" className="mt-8 inline-block rounded-xl bg-gold px-6 py-3 font-pixel text-xs text-bg transition hover:brightness-110">
+            CONTINUE
+          </a>
+          <p className="mt-10 text-sm break-all text-muted">
+            Page not found: <code>{location.pathname}</code>
+          </p>
+        </div>
+      </main>
+      <div className="checker fixed inset-x-0 bottom-0 h-3 opacity-60" aria-hidden="true" />
+    </>
+  )
+}
+
 export default function App() {
   const [rings, setRings] = useState(0)
   const collect = useCallback(() => setRings((r) => r + 1), [])
+  const superMode = useSuper()
 
   return (
     <>
@@ -268,12 +401,20 @@ export default function App() {
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-gold focus:px-3 focus:py-2 focus:text-bg">
         Skip to content
       </a>
-      <Navbar rings={rings} />
+      <Navbar rings={rings} onSuper={superMode.toggle} />
+      <p role="status" className="pointer-events-none fixed inset-x-0 top-28 z-50 text-center font-pixel text-xs text-gold sm:text-sm">
+        {superMode.toggles > 0 && (
+          <span key={superMode.toggles} className="toast inline-block rounded-lg border border-gold/40 bg-bg/85 px-4 py-2.5">
+            {superMode.on ? 'SUPER MODE!' : 'SUPER MODE OFF'}
+          </span>
+        )}
+      </p>
       <main id="main">
-        <Hero onCollect={collect} />
+        <Hero onCollect={collect} superMode={superMode.on} />
         <Sections />
       </main>
       <Footer />
+      <Spring />
     </>
   )
 }

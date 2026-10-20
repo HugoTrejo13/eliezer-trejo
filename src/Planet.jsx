@@ -1,8 +1,8 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Sparkles } from '@react-three/drei'
 import * as THREE from 'three'
-import { Eggman, Sonic, flashGeo, ringGeo, ringMat, ringPop } from './Characters.jsx'
+import { EGG_ORBIT, Eggman, Sonic, flashGeo, ringGeo, ringMat, ringPop } from './Characters.jsx'
 
 // Planeta Green Hill low-poly, todo hecho con código (ver PLAN.md §5).
 // Terreno + decoración se juntan en UNA sola geometría con colores por vértice.
@@ -382,6 +382,32 @@ function buildWorld() {
   choose(4, 0.22, off(0.08)).forEach((f) => place(f, rockPile(rand)))
   choose(40, 0.1, off(0.07)).forEach((f) => place(f, tuft(rand), 0.9 + rand() * 0.5))
 
+  // 8. Ruta de Eggman: de muchos círculos a su altura, el que pasa más lejos del loop, las palmeras y Sonic.
+  //    Su órbita gira junto con el planeta, así nunca atraviesa nada
+  const high = []
+  for (let i = 0; i < pos.length; i += 3) {
+    const v = new THREE.Vector3(pos[i], pos[i + 1], pos[i + 2])
+    if (v.length() > EGG_ORBIT - 0.5) high.push(v)
+  }
+  for (let i = 0; i < N; i += 2) {
+    const a = (i / N) * Math.PI * 2
+    high.push(n0.clone().multiplyScalar(Math.cos(a)).addScaledVector(t0, Math.sin(a)).multiplyScalar(ride[i] + 0.3))
+  }
+  let eggAxis = UP
+  let widest = -Infinity
+  for (let k = 0; k < 600; k++) {
+    // Ejes repartidos en media esfera (espiral de Fibonacci)
+    const A = new THREE.Vector3().setFromSphericalCoords(1, Math.acos(1 - (k + 0.5) / 600), k * 2.4)
+    let gap = Infinity
+    for (const v of high) {
+      const h = v.dot(A)
+      const rho = Math.sqrt(v.lengthSq() - h * h)
+      // La nave (ancha) va arriba; la cadena y la bola (delgadas) cuelgan hasta 0.5 más abajo
+      if (rho > EGG_ORBIT - 0.5) gap = Math.min(gap, Math.abs(h) - (rho > EGG_ORBIT - 0.16 ? 0.24 : 0.1))
+    }
+    if (gap > widest) [widest, eggAxis] = [gap, A]
+  }
+
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
@@ -398,7 +424,7 @@ function buildWorld() {
     lane: LANE,
     ringThetas: Array.from({ length: 8 }, (_, i) => 0.6 + (i / 8) * (Math.PI * 2 - 1.0)),
   }
-  return { geometry, track }
+  return { geometry, track, eggAxis }
 }
 
 // --- Anillos dorados: giran en órbita y se recogen con clic ---
@@ -407,14 +433,15 @@ function Ring({ orbit, phase, motion, onCollect }) {
   const group = useRef()
   const ring = useRef()
   const flash = useRef()
-  const state = useRef({ pending: false, gone: -1 })
+  const state = useRef({ pending: false, gone: -1, time: 0 })
 
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime
+  // Reloj propio: el de R3F vuelve a 0 al pausar el canvas y el anillo recogido crecía sin límite
+  useFrame((_, delta) => {
+    const s = state.current
+    const t = (s.time += delta)
     const a = phase + t * orbit.speed * motion
     group.current.position.set(Math.cos(a) * orbit.r, 0, Math.sin(a) * orbit.r)
 
-    const s = state.current
     if (s.pending) {
       s.pending = false
       s.gone = t
@@ -484,15 +511,21 @@ function Rocks({ count, motion }) {
   )
 }
 
-function World({ mobile, motion, onCollect }) {
+function World({ mobile, motion, superMode, onCollect }) {
   const tilt = useRef()
   const planet = useRef()
-  const { geometry, track } = useMemo(buildWorld, [])
+  const time = useRef(0)
+  const { geometry, track, eggAxis } = useMemo(buildWorld, [])
   const perOrbit = mobile ? 3 : 6
 
+  // Modo Super: los anillos brillan más
+  useEffect(() => {
+    ringMat.emissiveIntensity = superMode ? 1 : 0.45
+  }, [superMode])
+
   useFrame((state, delta) => {
-    // Entrada: el planeta crece con un pequeño rebote al cargar
-    const k = motion ? Math.min(state.clock.elapsedTime / 1.2, 1) : 1
+    // Entrada: el planeta crece con un pequeño rebote al cargar (solo una vez)
+    const k = motion ? Math.min((time.current += delta) / 1.2, 1) : 1
     const ease = 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2)
     tilt.current.scale.setScalar(0.6 + 0.4 * ease)
     planet.current.rotation.y += delta * 0.12 * motion
@@ -503,14 +536,14 @@ function World({ mobile, motion, onCollect }) {
 
   return (
     <group ref={tilt}>
-      {/* Sonic va dentro del grupo que gira con el planeta */}
+      {/* Sonic y Eggman van dentro del grupo que gira con el planeta */}
       <group ref={planet} rotation={[0.35, 0, 0]}>
         <mesh geometry={geometry}>
           <meshStandardMaterial vertexColors flatShading roughness={0.85} />
         </mesh>
-        <Sonic track={track} motion={motion} mobile={mobile} onCollect={onCollect} />
+        <Sonic track={track} motion={motion} mobile={mobile} superMode={superMode} onCollect={onCollect} />
+        <Eggman motion={motion} axis={eggAxis} />
       </group>
-      <Eggman motion={motion} mobile={mobile} />
       {/* Esfera invisible que tapa los clics: los anillos detrás del planeta no se recogen */}
       <mesh onClick={(e) => e.stopPropagation()}>
         <sphereGeometry args={[R + STEP * 2, 16, 16]} />
@@ -528,8 +561,20 @@ function World({ mobile, motion, onCollect }) {
   )
 }
 
+// En un canvas angosto la cámara abre el ángulo para que Eggman y los anillos (hasta ~3 de radio) no se corten a los lados
+const FOV = 42
+function FitWidth() {
+  const { camera, size } = useThree()
+  useLayoutEffect(() => {
+    const half = Math.max(Math.tan(THREE.MathUtils.degToRad(FOV / 2)), 3.05 / (camera.position.length() * (size.width / size.height)))
+    camera.fov = 2 * THREE.MathUtils.radToDeg(Math.atan(half))
+    camera.updateProjectionMatrix()
+  }, [camera, size])
+  return null
+}
+
 // memo: el contador de anillos re-renderiza App, pero el canvas no necesita re-renderizarse
-export default memo(function Planet({ onCollect }) {
+export default memo(function Planet({ onCollect, superMode }) {
   const wrap = useRef()
   const [visible, setVisible] = useState(true)
   const [{ mobile, motion }] = useState(() => ({
@@ -550,15 +595,23 @@ export default memo(function Planet({ onCollect }) {
         flat
         frameloop={visible ? 'always' : 'never'}
         dpr={[1, mobile ? 1.5 : 2]}
-        camera={{ position: [0, 0.3, mobile ? 7.4 : 8.2], fov: 42 }}
+        camera={{ position: [0, 0.3, 8.2], fov: FOV }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       >
         <ambientLight intensity={0.55} />
         <hemisphereLight args={['#cfe3ff', '#6b4a2a', 0.9]} />
         <directionalLight position={[-4, 5, 5]} intensity={2.4} color="#fff3d6" />
         <directionalLight position={[5, -2, -4]} intensity={1.2} color="#4c7dff" />
-        <World mobile={mobile} motion={motion} onCollect={onCollect} />
-        <Sparkles count={mobile ? 18 : 36} scale={6} size={2.5} speed={0.3 * motion} color="#ffc93c" opacity={0.8} />
+        <FitWidth />
+        <World mobile={mobile} motion={motion} superMode={superMode} onCollect={onCollect} />
+        <Sparkles
+          count={(mobile ? 18 : 36) * (superMode ? 3 : 1)}
+          scale={6}
+          size={superMode ? 4 : 2.5}
+          speed={(superMode ? 0.8 : 0.3) * motion}
+          color={superMode ? '#ffe27a' : '#ffc93c'}
+          opacity={superMode ? 1 : 0.8}
+        />
         {/* Arrastrar para girar solo en escritorio: en celular bloquearía el scroll */}
         {!mobile && <OrbitControls enableZoom={false} enablePan={false} minPolarAngle={Math.PI / 3} maxPolarAngle={(2 * Math.PI) / 3} />}
       </Canvas>

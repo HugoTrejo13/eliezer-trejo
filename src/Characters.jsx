@@ -1,9 +1,10 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
 // Sonic y Eggman en low-poly con los colores de Sonic 1.
 // Fan art hecho con código: no usa sprites, modelos ni audio de SEGA.
+// Cada pieza lleva su propio reloj (suma de delta): el de R3F vuelve a 0 cada vez que el canvas se pausa.
 
 const TAU = Math.PI * 2
 const BLUE = '#2652c9'
@@ -11,6 +12,7 @@ const PEACH = '#f2c79a'
 const RED = '#e0242c'
 const WHITE = '#f4f6fb'
 const BLACK = '#14161c'
+const GOLD = '#ffd84d' // Super Sonic
 
 const geo = {
   ico: new THREE.IcosahedronGeometry(1, 1),
@@ -128,6 +130,8 @@ function SpinBall({ spin }) {
 
 const v = () => new THREE.Vector3()
 const tmp = { pos: v(), up: v(), fwd: v(), right: v(), m: new THREE.Matrix4(), q: new THREE.Quaternion() }
+const X_AXIS = new THREE.Vector3(1, 0, 0)
+const Z_AXIS = new THREE.Vector3(0, 0, 1)
 
 // Coloca un objeto con su "arriba" en `up` y su frente en `fwd`
 function orient(obj, pos, up, fwd) {
@@ -140,7 +144,7 @@ function orient(obj, pos, up, fwd) {
 // Acerca `value` a `target` de forma suave e independiente de los fps
 const ease = (value, target, rate, dt) => value + (target - value) * (1 - Math.exp(-rate * dt))
 
-export function Sonic({ track, motion, mobile, onCollect }) {
+export function Sonic({ track, motion, mobile, superMode, onCollect }) {
   const root = useRef()
   const runner = useRef()
   const ball = useRef()
@@ -216,6 +220,8 @@ export function Sonic({ track, motion, mobile, onCollect }) {
 
   const sim = useRef({
     d: info.startD,
+    time: 0,
+    power: 0,
     speed: 1,
     boost: 0,
     rev: 0,
@@ -239,10 +245,19 @@ export function Sonic({ track, motion, mobile, onCollect }) {
     dustDirs: Array.from({ length: 6 }, () => v()),
   })
 
-  useFrame(({ clock }, delta) => {
-    const t = clock.elapsedTime
-    const dt = Math.min(delta, 0.05)
+  // Super Sonic: el azul se vuelve dorado y brilla
+  useEffect(() => {
+    for (const m of [mat(BLUE), ...fx.ghostMats]) {
+      m.color.set(superMode ? GOLD : BLUE)
+      m.emissive.set(superMode ? '#7a4500' : BLACK)
+    }
+  }, [superMode, fx])
+
+  useFrame((_, delta) => {
     const s = sim.current
+    const t = (s.time += delta)
+    const dt = Math.min(delta, 0.05)
+    s.power = ease(s.power, superMode ? 1 : 0, 3, dt)
     const dust = (pos, up) => {
       s.dustT = t
       s.dustPos.copy(pos)
@@ -263,7 +278,7 @@ export function Sonic({ track, motion, mobile, onCollect }) {
 
     // Velocidad con inercia: acelera en el loop y con el spin dash, y vuelve suave a la normal
     const here = info.sample(s.d, s.here)
-    const target = s.rev > 0 ? 0 : 1 + s.boost + (here.loop ? 0.35 : 0)
+    const target = s.rev > 0 ? 0 : (1 + s.boost + (here.loop ? 0.35 : 0)) * (1 + 0.6 * s.power)
     s.speed = ease(s.speed, target, s.rev > 0 ? 9 : 2.5, dt)
     s.d = (s.d + dt * s.speed * motion) % info.total
     info.sample(s.d, here)
@@ -321,7 +336,8 @@ export function Sonic({ track, motion, mobile, onCollect }) {
     b.body.rotation.x = s.lean
     b.torso.rotation.set(0.05 * Math.sin(2 * ph) * g, 0.2 * Math.sin(ph) * g, 0)
     b.head.rotation.set(-s.lean * 0.5 + 0.05 * Math.sin(2 * ph - 0.6) * g, 0, 0.04 * Math.sin(ph) * g)
-    b.quills.rotation.x = (0.08 * Math.sin(2 * ph - 1.3) - 0.06 * Math.min(Math.max(s.speed - 1, 0), 2)) * g
+    // En modo Super las púas se levantan
+    b.quills.rotation.x = (0.08 * Math.sin(2 * ph - 1.3) - 0.06 * Math.min(Math.max(s.speed - 1, 0), 2)) * g + 0.5 * s.power
 
     // Estela: copias de la bola en posiciones pasadas, solo cuando va rápido hecho bola
     s.history.push(here.pos.clone().addScaledVector(up, 0.3 * SONIC_SCALE))
@@ -435,27 +451,42 @@ const glass = new THREE.MeshStandardMaterial({ color: '#a9dcff', transparent: tr
 const lamp = new THREE.MeshStandardMaterial({ color: '#ffd43b', emissive: '#ffb000', emissiveIntensity: 0.8 })
 const hull = mat('#c8ced8', { metalness: 0.35, roughness: 0.35 })
 
-export function Eggman({ motion, mobile }) {
+export const EGG_ORBIT = 2.6
+
+// Su órbita gira junto con el planeta, por la franja sin nada alto que calcula buildWorld (`axis`)
+export function Eggman({ motion, axis }) {
   const ship = useRef()
   const pendulum = useRef()
   const flame = useRef()
+  const time = useRef(0)
   const ballGeo = useMemo(checkerBall, [])
-  const radius = mobile ? 2.4 : 2.6
 
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime
-    const a = 1.2 + t * 0.16 * motion
+  // Arranca en el punto de su órbita más a la vista (arriba a la izquierda, hacia la cámara)
+  const { quat, a0 } = useMemo(() => {
+    const quat = new THREE.Quaternion().setFromUnitVectors(Z_AXIS, axis)
+    const view = new THREE.Vector3(-0.35, 0.55, 0.75)
+    let a0 = 0
+    for (let a = 0, best = -9; a < TAU; a += 0.05) {
+      const d = new THREE.Vector3(Math.cos(a), Math.sin(a), 0).applyQuaternion(quat).applyAxisAngle(X_AXIS, 0.35).dot(view)
+      if (d > best) [best, a0] = [d, a]
+    }
+    return { quat, a0 }
+  }, [axis])
+
+  useFrame((_, delta) => {
+    const t = (time.current += delta)
+    const a = a0 + t * 0.16 * motion
     const { pos, up, fwd } = tmp
     up.set(Math.cos(a), Math.sin(a), 0)
     fwd.set(-Math.sin(a), Math.cos(a), 0)
-    pos.copy(up).multiplyScalar(radius + Math.sin(t * 2) * 0.04 * motion)
+    pos.copy(up).multiplyScalar(EGG_ORBIT + Math.sin(t * 2) * 0.04 * motion)
     orient(ship.current, pos, up, fwd)
     pendulum.current.rotation.x = Math.sin(t * 1.7) * 0.4 * motion
     flame.current.scale.z = 1 + Math.sin(t * 40) * 0.25 * motion
   })
 
   return (
-    <group rotation={[0.3, 0.35, 0]}>
+    <group quaternion={quat}>
       <group ref={ship} scale={0.42}>
         {/* Casco */}
         <P g="ico" m={hull} s={[0.5, 0.32, 0.62]} />

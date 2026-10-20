@@ -23,7 +23,9 @@
   --color-sonic: #ffb000;
 }
 
+/* En monitores grandes todo crece en proporción (hasta 125% en ~2600 px), como si tuviera más zoom */
 html {
+  font-size: clamp(100%, 0.5rem + 0.45vw, 125%);
   scroll-behavior: smooth;
   scroll-padding-top: 6rem;
   background: var(--color-bg);
@@ -166,8 +168,75 @@ body {
 }
 html:has(.detail[open]) { overflow: hidden; }
 
+/* --- Fase 4 --- */
+
+/* Resplandor detrás del planeta: azul normal, dorado en modo Super */
+.planet-glow { background: radial-gradient(circle closest-side, rgb(47 107 255 / 0.22), transparent); }
+.planet-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle closest-side, rgb(255 201 60 / 0.4), transparent 90%);
+  opacity: 0;
+  transition: opacity 0.8s;
+}
+.super .planet-glow::before { opacity: 1; }
+
+/* Chispas del cursor en modo Super */
+.spark {
+  position: fixed;
+  z-index: 60;
+  width: 10px;
+  height: 10px;
+  translate: -50% -50%;
+  pointer-events: none;
+  background: #ffe27a;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: spark 0.7s ease-out forwards;
+}
+@keyframes spark {
+  to { transform: translate(var(--dx), var(--dy)) rotate(90deg) scale(0); opacity: 0; }
+}
+
+/* Aviso SUPER MODE: entra como ACT CLEAR y se desvanece */
+.toast { animation: act-clear 0.6s steps(6) backwards, fade-out 0.5s 1.8s forwards; }
+@keyframes fade-out {
+  to { opacity: 0; }
+}
+
+/* Resorte (volver arriba): se comprime con el mouse y rebota al tocarlo */
+.spring-coil, .spring-plate { transition: transform 0.15s; }
+.spring-coil { transform-origin: 16px 28px; }
+@media (hover: hover) {
+  .spring:hover .spring-coil { transform: scaleY(0.8); }
+  .spring:hover .spring-plate { transform: translateY(3px); }
+}
+.boing .spring-coil { animation: coil 0.45s ease-out; }
+.boing .spring-plate { animation: plate 0.45s ease-out; }
+@keyframes coil {
+  30% { transform: scaleY(0.4); }
+  60% { transform: scaleY(1.3); }
+}
+@keyframes plate {
+  30% { transform: translateY(9px); }
+  60% { transform: translateY(-4.5px); }
+}
+
+/* GAME OVER: cada palabra entra por su lado, como en Sonic 1 */
+.game-over { text-shadow: 4px 4px 0 var(--color-sonic); }
+.game-over span { display: inline-block; animation: from-left 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.game-over span + span { animation-name: from-right; }
+@keyframes from-left {
+  from { transform: translateX(-60vw); }
+}
+@keyframes from-right {
+  from { transform: translateX(60vw); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .ring-spin, .blink, .starpost-on, .emeralds-seen .emerald, .act-clear, .detail[open], .monitor:hover .monitor-box { animation: none; }
+  .ring-spin, .blink, .starpost-on, .emeralds-seen .emerald, .act-clear, .detail[open], .monitor:hover .monitor-box, .boing *, .game-over span { animation: none; }
+  .toast { animation: fade-out 0.5s 1.8s forwards; }
   .tilt:hover, .emerald:hover { transform: none; }
+  .planet-glow::before { transition: none; }
 }
