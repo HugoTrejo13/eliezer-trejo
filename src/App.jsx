@@ -310,8 +310,9 @@ function Hero({ onCollect, superMode }) {
         </div>
       </div>
 
+      {/* En celular, un poco más alto que ancho: así FitWidth acerca la cámara hasta el límite de los lados sin cortar nada */}
       <div
-        className="planet-glow relative -mx-4 h-[24rem] sm:-mx-6 sm:h-[28rem] lg:h-[36rem] xl:mx-0 xl:h-[calc(100svh-6rem)] xl:min-h-[30rem]"
+        className="planet-glow relative -mx-4 aspect-[20/21] sm:-mx-6 sm:aspect-auto sm:h-[28rem] lg:h-[36rem] xl:mx-0 xl:h-[calc(100svh-6rem)] xl:min-h-[30rem]"
         role="img"
         aria-label="Low-poly Green Hill planet with golden rings in orbit. Click a ring to collect it."
       >
@@ -433,7 +434,7 @@ export default function App() {
           </span>
         )}
       </p>
-      <main id="main">
+      <main id="main" className="overflow-x-clip">
         <Hero onCollect={collect} superMode={superMode.on} />
         <Sections />
       </main>

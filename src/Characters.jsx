@@ -47,6 +47,7 @@ export function ringPop(k, respawn = 6) {
 // --- Sonic ---
 
 const SONIC_SCALE = 0.3
+const LENS = new THREE.MeshStandardMaterial({ color: '#10131f', flatShading: true, roughness: 0.25 })
 const QUILLS = [
   [0.5, 0.1, 0.36],
   [0.05, -0.02, 0.4],
@@ -107,6 +108,17 @@ function Runner({ rig }) {
           {[-1, 1].map((s) => (
             <P key={s} g="ico" c={BLACK} p={[s * 0.055, 0.05, 0.255]} s={[0.03, 0.055, 0.02]} />
           ))}
+          {/* Lentes oscuros: micas negras brillantes que envuelven la cara, puente y patas hacia las orejas */}
+          {[-1, 1].map((s) => (
+            <group key={s}>
+              <group position={[s * 0.08, 0.07, 0.295]} rotation={[0, s * 0.35, 0]}>
+                <P g="ico" m={LENS} s={[0.088, 0.064, 0.018]} />
+                <P g="box" c={WHITE} p={[-0.03, 0.026, 0.017]} r={[0, 0, 0.7]} s={[0.04, 0.009, 0.004]} />
+              </group>
+              <P g="box" c={BLACK} p={[s * 0.175, 0.08, 0.205]} r={[0, -s * 0.57, 0]} s={[0.014, 0.014, 0.13]} />
+            </group>
+          ))}
+          <P g="box" c={BLACK} p={[0, 0.085, 0.31]} s={[0.03, 0.014, 0.014]} />
           <P g="ico" c={PEACH} p={[0, -0.08, 0.17]} s={[0.13, 0.09, 0.1]} />
           <P g="ico" c={BLACK} p={[0, -0.03, 0.27]} s={0.03} />
         </group>

@@ -22,6 +22,23 @@ function useSeen(ref) {
   return seen
 }
 
+// Aparición sutil la primera vez que algo entra en pantalla (como en el sitio de César).
+// Un solo observador para todo: marca el elemento con data-in y la clase .reveal hace la animación
+const revealer = new IntersectionObserver(
+  (entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue
+      e.target.dataset.in = ''
+      revealer.unobserve(e.target)
+    }
+  },
+  { rootMargin: '0px 0px -10% 0px' },
+)
+const reveal = (el) => {
+  revealer.observe(el)
+  return () => revealer.unobserve(el)
+}
+
 // --- Íconos en línea (sin librerías) ---
 
 const PATHS = {
@@ -59,7 +76,7 @@ function Icon({ name, className = 'size-5' }) {
 // Encabezado al estilo César: rótulo chico (aquí en pixel) + título grande con punto
 function Heading({ zone, title, children, center }) {
   return (
-    <div className={center ? 'text-center' : ''}>
+    <div ref={reveal} className={`reveal reveal-down ${center ? 'text-center' : ''}`}>
       <p className="font-pixel text-[10px] text-grass sm:text-[11px]">{zone}</p>
       <h2 className="mt-3 text-4xl font-extrabold tracking-tight sm:text-5xl">{title}</h2>
       {children && <p className={`mt-5 max-w-3xl leading-relaxed text-muted ${center ? 'mx-auto' : ''}`}>{children}</p>}
@@ -80,13 +97,13 @@ function About() {
     <Section id="about">
       <Heading zone="ABOUT ZONE · ACT 1" title="Overview." />
       {about.summary.map((p) => (
-        <p key={p.slice(0, 20)} className="mt-5 max-w-3xl leading-relaxed text-muted">
+        <p key={p.slice(0, 20)} ref={reveal} className="reveal mt-5 max-w-3xl leading-relaxed text-muted">
           {p}
         </p>
       ))}
       <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {about.services.map((s) => (
-          <li key={s.title} className="tilt rounded-2xl bg-gradient-to-br from-gold/70 via-grass/40 to-sonic/50 p-px">
+        {about.services.map((s, i) => (
+          <li key={s.title} ref={reveal} style={{ '--i': i }} className="reveal tilt rounded-2xl bg-gradient-to-br from-gold/70 via-grass/40 to-sonic/50 p-px">
             <div className="flex h-full flex-col items-center rounded-2xl bg-surface px-6 py-8 text-center">
               <span className="grid size-14 place-items-center rounded-full bg-bg text-gold">
                 <Icon name={s.icon} className="size-7" />
@@ -122,7 +139,7 @@ function Job({ job, index }) {
   const seen = useSeen(ref)
   const left = index % 2 === 0
   const card = (
-    <div className="rounded-2xl border-b-4 border-gold bg-surface p-6 shadow-lg shadow-black/20">
+    <div ref={reveal} className="reveal rounded-2xl border-b-4 border-gold bg-surface p-6 shadow-lg shadow-black/20">
       <h3 className="text-xl font-bold">{job.title}</h3>
       <p className="mt-1 font-medium text-grass">{job.org}</p>
       <p className="mt-1 text-sm text-muted md:hidden">{job.date}</p>
@@ -133,7 +150,7 @@ function Job({ job, index }) {
       </ul>
     </div>
   )
-  const date = <p className="hidden pt-5 text-sm font-medium text-muted md:block">{job.date}</p>
+  const date = <p ref={reveal} className="reveal hidden pt-5 text-sm font-medium text-muted md:block">{job.date}</p>
   return (
     <li ref={ref} className="relative grid gap-x-8 pl-14 md:grid-cols-[1fr_auto_1fr] md:pl-0">
       <div className={left ? '' : 'md:text-right'}>{left ? card : date}</div>
@@ -164,7 +181,7 @@ function Experience() {
 function Education() {
   return (
     <Section id="education">
-      <div className="grid items-center gap-10 rounded-3xl border border-line bg-surface/60 p-6 sm:p-10 lg:grid-cols-[1fr_1.4fr]">
+      <div ref={reveal} className="reveal grid items-center gap-10 rounded-3xl border border-line bg-surface/60 p-6 sm:p-10 lg:grid-cols-[1fr_1.4fr]">
         <Heading zone="SCHOOL ZONE · ACT 3" title="Education.">
           Where I'm learning the fundamentals, between work and side projects.
         </Heading>
@@ -205,8 +222,8 @@ function Stack() {
     <Section id="stack">
       <Heading zone="TECH ZONE" title="Stack." center />
       <ul className="mt-14 grid grid-cols-3 justify-items-center gap-x-4 gap-y-10 sm:grid-cols-5 lg:grid-cols-7">
-        {stack.map((t) => (
-          <li key={t.name} className="monitor flex flex-col items-center gap-3 text-center">
+        {stack.map((t, i) => (
+          <li key={t.name} ref={reveal} style={{ '--i': (i % 7) * 0.5 }} className="reveal monitor flex flex-col items-center gap-3 text-center">
             <div className="monitor-box">
               <div className="monitor-screen">
                 <img src={t.icon} alt="" loading="lazy" width="48" height="48" />
@@ -317,9 +334,9 @@ function Cover({ item, big }) {
 
 const TAG_COLORS = ['#3ddc6a', '#7aa7ff', '#ffc93c', '#ff8fc4']
 
-function Card({ item, onOpen }) {
+function Card({ item, index, onOpen }) {
   return (
-    <article className="group relative flex flex-col rounded-2xl border border-line bg-surface p-4 transition duration-200 hover:-translate-y-1 hover:border-gold/60 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold">
+    <article ref={reveal} style={{ '--i': index % 3 }} className="reveal group relative flex flex-col rounded-2xl border border-line bg-surface p-4 transition duration-200 hover:-translate-y-1 hover:border-gold/60 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold">
       <div className="relative overflow-hidden rounded-xl">
         <Cover item={item} />
         {item.badge && <span className="absolute top-3 left-3 rounded bg-gold px-2 py-1 font-pixel text-[10px] text-bg">{item.badge}</span>}
@@ -361,8 +378,8 @@ function Projects({ onOpen }) {
         Code I have written: microservices, full-stack apps and this site. Some repositories are private or belong to a team; each card says what part was mine. Open a card to see how it works.
       </Heading>
       <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {projects.map((p) => (
-          <Card key={p.slug} item={p} onOpen={onOpen} />
+        {projects.map((p, i) => (
+          <Card key={p.slug} item={p} index={i} onOpen={onOpen} />
         ))}
       </div>
     </Section>
@@ -376,8 +393,8 @@ function Achievements({ onOpen }) {
         Challenges and hackathons where I built something and presented it. Open a card for the story.
       </Heading>
       <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {achievements.map((a) => (
-          <Card key={a.slug} item={a} onOpen={onOpen} />
+        {achievements.map((a, i) => (
+          <Card key={a.slug} item={a} index={i} onOpen={onOpen} />
         ))}
       </div>
     </Section>
@@ -543,7 +560,7 @@ function Contact() {
 
   return (
     <Section id="contact" className="grid items-stretch gap-10 lg:grid-cols-2">
-      <div className="rounded-3xl border border-line bg-surface p-6 sm:p-8">
+      <div ref={reveal} className="reveal reveal-left rounded-3xl border border-line bg-surface p-6 sm:p-8">
         <Heading zone="FINAL ZONE" title="Contact." />
         {state === 'sent' ? (
           <div className="mt-8 rounded-2xl border border-gold/60 bg-bg p-6 text-center" role="status">
@@ -590,7 +607,7 @@ function Contact() {
           </a>
         </div>
       </div>
-      <div className="relative h-80 sm:h-96 lg:h-[32rem] lg:self-center" role="img" aria-label="Green Hill goal signpost. It spins when your message is sent.">
+      <div ref={reveal} className="reveal reveal-right relative h-80 sm:h-96 lg:h-[32rem] lg:self-center" role="img" aria-label="Green Hill goal signpost. It spins when your message is sent.">
         <Suspense fallback={null}>
           <Goal cleared={state === 'sent'} />
         </Suspense>
